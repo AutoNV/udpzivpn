@@ -17,13 +17,6 @@ echo "Saved:"
 echo " - $IP_FILE"
 echo " - $ISP_FILE"
 echo "================================="
-echo
-read -rp "Lanjutkan instalasi ZIVPN Manager? [Y/n]: " confirm
-confirm=${confirm:-Y}
-if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-echo "❌ Instalasi dibatalkan."
-exit 0
-fi
 wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/zivpn-manager -O /usr/local/bin/zivpn-manager
 chmod +x /usr/local/bin/zivpn-manager
 /usr/local/bin/zivpn-manager
