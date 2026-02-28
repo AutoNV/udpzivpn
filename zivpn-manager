@@ -11,6 +11,7 @@ PURPLE='\033[0;37m'
 BOLD_CYAN='\033[1;37m'
 NC='\033[0m'
 
+# ── Animasi progress bar ──────────────────────────
 _C='\033[0;36m'
 _G='\033[1;32m'
 _W='\033[1;37m'
@@ -39,259 +40,15 @@ _err()  { printf "  ${_R}✘  %s${NC}\n"  "$1"; }
 _sep()  { echo -e "${_C}--------------------------------------------${NC}"; }
 _hdr()  { _sep; echo -e "${_W}  $1${NC}"; _sep; }
 
-# ── Config ────────────────────────────────────────────────────
 LICENSE_URL="https://raw.githubusercontent.com/AutoNV/udpzivpn/main/ip2"
 LICENSE_INFO_FILE="/etc/zivpn/.license_info"
 CONFIG_DIR="/etc/zivpn"
 TELEGRAM_CONF="${CONFIG_DIR}/telegram.conf"
-DOMAIN_CONF="${CONFIG_DIR}/domain.conf"
-API_PORT=443
 
 if [ "$(id -u)" -ne 0 ]; then
 echo "This script must be run as root. Please use sudo or run as root user." >&2
 exit 1
 fi
-
-# ══════════════════════════════════════════════════════════════
-#  ACME.SH SSL FUNCTIONS
-# ══════════════════════════════════════════════════════════════
-
-function install_acme_sh() {
-  _progress "Install acme.sh"
-  mkdir -p /root/.acme.sh
-  curl -fsSL https://acme-install.netlify.app/acme.sh -o /root/.acme.sh/acme.sh 2>/dev/null
-  chmod +x /root/.acme.sh/acme.sh
-  # Set default CA ke Let's Encrypt
-  /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt >/dev/null 2>&1
-  _ok "acme.sh siap"
-}
-
-function issue_ssl_acme() {
-  local domain="$1"
-
-  _hdr "[ SSL ] Menerbitkan SSL via acme.sh"
-
-  # Install acme.sh jika belum ada
-  if [ ! -f "/root/.acme.sh/acme.sh" ]; then
-    install_acme_sh
-  fi
-
-  # Stop layanan yang pakai port 80 sementara
-  systemctl stop nginx 2>/dev/null || true
-  systemctl stop apache2 2>/dev/null || true
-  sleep 1
-
-  _progress "Issue SSL certificate (standalone)"
-  /root/.acme.sh/acme.sh --issue \
-    -d "$domain" \
-    --standalone \
-    --httpport 80 \
-    --force \
-    >/var/log/zivpn_acme.log 2>&1
-
-  if [ $? -eq 0 ]; then
-    _ok "SSL berhasil diterbitkan"
-
-    # Install cert ke direktori zivpn
-    _progress "Install cert ke /etc/zivpn"
-    mkdir -p /etc/zivpn
-    /root/.acme.sh/acme.sh --install-cert \
-      -d "$domain" \
-      --cert-file    /etc/zivpn/zivpn.crt \
-      --key-file     /etc/zivpn/zivpn.key \
-      --fullchain-file /etc/zivpn/zivpn.crt \
-      --reloadcmd    "systemctl reload nginx 2>/dev/null || true" \
-      >/dev/null 2>&1
-    chmod 600 /etc/zivpn/zivpn.key
-    _ok "Cert diinstall ke /etc/zivpn"
-
-    # Setup auto-renew via cron
-    _progress "Setup auto-renew"
-    /root/.acme.sh/acme.sh --install-cronjob >/dev/null 2>&1
-    _ok "Auto-renew aktif"
-    return 0
-  else
-    _warn "acme.sh gagal, fallback ke self-signed cert..."
-    _warn "Cek log: /var/log/zivpn_acme.log"
-    # Buat self-signed sebagai fallback
-    openssl req -x509 -newkey rsa:4096 -days 365 -nodes \
-      -subj "/C=US/ST=Jakarta/L=Jakarta/O=NexusDev/OU=VPN/CN=${domain}" \
-      -keyout /etc/zivpn/zivpn.key \
-      -out /etc/zivpn/zivpn.crt 2>/dev/null
-    chmod 600 /etc/zivpn/zivpn.key
-    _warn "Self-signed cert digunakan"
-    return 1
-  fi
-}
-
-function ask_domain_input() {
-  # Minta user input domain saat install pertama kali
-  local domain=""
-  echo ""
-  echo -e "${_C}════════════════════════════════════════════════${NC}"
-  echo -e "${_W}   🌐  Setup Domain & SSL                      ${NC}"
-  echo -e "${_C}════════════════════════════════════════════════${NC}"
-  echo ""
-  echo -e "${_Y}  Masukkan domain yang sudah diarahkan ke IP server ini.${NC}"
-  echo -e "${_Y}  Pastikan DNS A record sudah pointing ke: $(curl -s https://api.ipify.org 2>/dev/null)${NC}"
-  echo ""
-  while true; do
-    read -p "  Domain (contoh: vpn.example.com): " domain
-    domain=$(echo "$domain" | tr -d ' ' | tr '[:upper:]' '[:lower:]')
-    if [ -z "$domain" ]; then
-      echo -e "  ${_R}✘  Domain tidak boleh kosong.${NC}"
-      continue
-    fi
-    # Validasi format domain sederhana
-    if ! echo "$domain" | grep -qE '^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)+$'; then
-      echo -e "  ${_R}✘  Format domain tidak valid. Coba lagi.${NC}"
-      continue
-    fi
-    echo ""
-    echo -e "  ${_W}Domain yang dimasukkan: ${_G}${domain}${NC}"
-    read -p "  Sudah benar? (y/n): " confirm
-    if [[ "$confirm" =~ ^[Yy]$ ]]; then
-      break
-    fi
-  done
-
-  # Simpan domain conf
-  local server_ip
-  server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null || curl -s https://api.ipify.org 2>/dev/null)
-  mkdir -p "$CONFIG_DIR"
-  printf 'DOMAIN=%s\nSERVER_IP=%s\nSSL_ENABLED=true\n' "$domain" "$server_ip" > "$DOMAIN_CONF"
-
-  echo "$domain"
-}
-
-
-function _write_nginx_config() {
-  # Tulis config nginx TANPA heredoc ekspansi variabel (pakai printf)
-  # agar tidak ada escape color ANSI yang bocor ke file config
-  local domain="$1"
-  local cfg="/etc/nginx/sites-available/zivpn-api"
-
-  # Hapus config lama dulu
-  rm -f "$cfg"
-
-  printf 'server {\n' >> "$cfg"
-  printf '    listen 80;\n' >> "$cfg"
-  printf '    server_name %s;\n' "$domain" >> "$cfg"
-  printf '    return 301 https://$host$request_uri;\n' >> "$cfg"
-  printf '}\n\n' >> "$cfg"
-  printf 'server {\n' >> "$cfg"
-  printf '    listen 443 ssl http2;\n' >> "$cfg"
-  printf '    server_name %s;\n' "$domain" >> "$cfg"
-  printf '\n' >> "$cfg"
-  printf '    ssl_certificate /etc/zivpn/zivpn.crt;\n' >> "$cfg"
-  printf '    ssl_certificate_key /etc/zivpn/zivpn.key;\n' >> "$cfg"
-  printf '    ssl_protocols TLSv1.2 TLSv1.3;\n' >> "$cfg"
-  printf '    ssl_ciphers HIGH:!aNULL:!MD5;\n' >> "$cfg"
-  printf '\n' >> "$cfg"
-  printf '    location / {\n' >> "$cfg"
-  printf '        proxy_pass http://127.0.0.1:5888;\n' >> "$cfg"
-  printf '        proxy_set_header Host $host;\n' >> "$cfg"
-  printf '        proxy_set_header X-Real-IP $remote_addr;\n' >> "$cfg"
-  printf '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n' >> "$cfg"
-  printf '        proxy_set_header X-Forwarded-Proto $scheme;\n' >> "$cfg"
-  printf '    }\n' >> "$cfg"
-  printf '}\n' >> "$cfg"
-}
-
-function _fix_ssl_key_mismatch() {
-  # Periksa apakah cert dan key cocok, jika tidak → regenerate pasangan baru
-  local domain="$1"
-  local cert_md5 key_md5
-
-  cert_md5=$(openssl x509 -noout -modulus -in /etc/zivpn/zivpn.crt 2>/dev/null | md5sum)
-  key_md5=$(openssl rsa -noout -modulus -in /etc/zivpn/zivpn.key 2>/dev/null | md5sum)
-
-  if [ "$cert_md5" != "$key_md5" ] || [ -z "$cert_md5" ]; then
-    _warn "SSL cert/key tidak cocok, regenerate self-signed..."
-    # Hapus dulu file lama
-    rm -f /etc/zivpn/zivpn.crt /etc/zivpn/zivpn.key
-    # Generate pasangan baru yang cocok
-    openssl req -x509 -newkey rsa:4096 -days 365 -nodes \
-      -subj "/C=US/ST=Jakarta/L=Jakarta/O=NexusDev/OU=VPN/CN=${domain}" \
-      -keyout /etc/zivpn/zivpn.key \
-      -out /etc/zivpn/zivpn.crt 2>/dev/null
-    chmod 600 /etc/zivpn/zivpn.key
-    _ok "SSL cert/key baru dibuat (matched)"
-  else
-    _ok "SSL cert/key cocok"
-  fi
-}
-
-function setup_nginx_ssl_proxy() {
-  local domain="$1"
-
-  _progress "Installing nginx"
-  apt install -y nginx >/dev/null 2>&1
-
-  # Cek dan fix SSL key mismatch sebelum menulis config
-  _fix_ssl_key_mismatch "$domain"
-
-  # Tulis config nginx menggunakan printf (bukan heredoc) agar
-  # tidak ada karakter ANSI color yang bocor ke dalam config file
-  _write_nginx_config "$domain"
-
-  ln -sf /etc/nginx/sites-available/zivpn-api /etc/nginx/sites-enabled/zivpn-api
-  rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
-
-  # Test config sebelum restart
-  local test_result
-  test_result=$(nginx -t 2>&1)
-  if echo "$test_result" | grep -q "syntax is ok"; then
-    systemctl restart nginx
-    systemctl enable nginx >/dev/null 2>&1
-    _ok "Nginx SSL proxy aktif → https://${domain}"
-  else
-    _err "Nginx config error:"
-    echo "$test_result" | grep "emerg\|error" | head -5
-  fi
-
-  # Buka port 443 dan 80
-  iptables -I INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null
-  iptables -I INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null
-  netfilter-persistent save >/dev/null 2>&1
-}
-
-# ══════════════════════════════════════════════════════════════
-#  HELPER FUNCTIONS
-# ══════════════════════════════════════════════════════════════
-
-function get_active_domain() {
-  if [ -f "$DOMAIN_CONF" ]; then
-    source "$DOMAIN_CONF"
-    echo "${DOMAIN}"
-  else
-    # fallback ke CN dari cert
-    local cert_cn
-    cert_cn=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject 2>/dev/null | sed -n 's/.*CN = \([^,]*\).*/\1/p')
-    if [ -n "$cert_cn" ] && [ "$cert_cn" != "zivpn" ]; then
-      echo "$cert_cn"
-    else
-      cat /etc/zivpn/ip.txt 2>/dev/null
-    fi
-  fi
-}
-
-function get_api_base_url() {
-  local domain
-  domain=$(get_active_domain)
-  local server_ip
-  server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
-
-  if [ -f "$DOMAIN_CONF" ]; then
-    source "$DOMAIN_CONF"
-    if [ "${SSL_ENABLED}" = "true" ]; then
-      echo "https://${domain}"
-      return
-    fi
-  fi
-  # fallback
-  echo "http://${server_ip}:5888"
-}
 
 function send_telegram_notification() {
 local message="$1"
@@ -416,35 +173,34 @@ local EXPIRE_FORMATTED
 EXPIRE_FORMATTED=$(date -d "@$expiry_date" +"%d %B %Y %H:%M")
 ip=$(cat /etc/zivpn/ip.txt)
 isp=$(cat /etc/zivpn/isp.txt)
+CERT_CN=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p')
 local host
-host=$(get_active_domain)
-local api_base
-api_base=$(get_api_base_url)
-local api_key
-api_key=$(cat /etc/zivpn/api_auth.key 2>/dev/null || echo "N/A")
+if [ "$CERT_CN" == "zivpn" ]; then
+host=$(cat /etc/zivpn/ip.txt)
+else
+host=$CERT_CN
+fi
 clear
 echo "Success:"
 echo "CREATE AKUN ZIVPN"
-echo "┌────────────────────────────────────────────┐"
+echo "┌────────────────────────┐"
 echo "│ Host   : $host"
 echo "│ IP     : $ip"
 echo "│ ISP    : $isp"
 echo "│ Pass   : $password"
 echo "│ Expire : $EXPIRE_FORMATTED"
-echo "├────────────────────────────────────────────┤"
-echo "│ API URL: ${api_base}/create/zivpn"
-echo "│         ?password=${password}&exp=${days}&auth=${api_key}"
-echo "└────────────────────────────────────────────┘"
+echo "└────────────────────────┘"
 echo "Terima kasih telah menggunakan layanan kami"
 local message=$(cat <<EOF
 CREATE AKUN ZIVPN
-┌────────────────────────────────────────────┐
+┌────────────────────────┐
 │ Host   : $host
 │ IP     : $ip
 │ ISP    : $isp
 │ Pass   : $password
 │ Expire : $EXPIRE_FORMATTED
-└────────────────────────────────────────────┘
+└────────────────────────┘
+Terima kasih telah menggunakan layanan kami
 EOF
 )
 send_telegram_notification "$message"
@@ -477,8 +233,14 @@ user_line=$(grep "^${password}:" "$db_file")
 if [ -n "$user_line" ]; then
 local expiry_date
 expiry_date=$(echo "$user_line" | cut -d: -f2)
+local CERT_CN
+CERT_CN=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p')
 local HOST
-HOST=$(get_active_domain)
+if [ "$CERT_CN" == "zivpn" ]; then
+HOST=$(cat /etc/zivpn/ip.txt)
+else
+HOST=$CERT_CN
+fi
 local EXPIRE_FORMATTED
 EXPIRE_FORMATTED=$(date -d "@$expiry_date" +"%d %B %Y %H:%M")
 fi
@@ -498,22 +260,18 @@ echo "$api_key" > "$key_file"
 chmod 600 "$key_file"
 echo "New API authentication key has been generated and saved."
 echo "Key: ${api_key}"
+echo "Sending API key to Telegram..."
 local server_ip
 server_ip=$(cat /etc/zivpn/ip.txt)
+local cert_cn
+cert_cn=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p' 2>/dev/null || echo "")
 local domain
-domain=$(get_active_domain)
-local api_base
-api_base=$(get_api_base_url)
-echo ""
-echo "═══════════════════════════════════════════════"
-echo " Contoh Penggunaan API:"
-echo "───────────────────────────────────────────────"
-echo " Trial   : ${api_base}/trial/zivpn?exp=60&auth=${api_key}"
-echo " Create  : ${api_base}/create/zivpn?password=PASS&exp=30&auth=${api_key}"
-echo " Renew   : ${api_base}/renew/zivpn?password=PASS&exp=30&auth=${api_key}"
-echo " Delete  : ${api_base}/delete/zivpn?password=PASS&auth=${api_key}"
-echo "═══════════════════════════════════════════════"
-/usr/local/bin/zivpn_helper.sh api-key-notification "$api_key" "$server_ip" "$domain" 2>/dev/null || true
+if [ "$cert_cn" == "zivpn" ] || [ -z "$cert_cn" ]; then
+domain=$server_ip
+else
+domain=$cert_cn
+fi
+/usr/local/bin/zivpn_helper.sh api-key-notification "$api_key" "$server_ip" "$domain"
 read -p "Tekan Enter untuk kembali ke menu..."
 }
 
@@ -529,22 +287,13 @@ return
 fi
 local api_key
 api_key=$(cat "$key_file")
-local api_base
-api_base=$(get_api_base_url)
 echo ""
 echo "API Authentication Key:"
 echo "-----------------------"
 echo "Key: ${api_key}"
 echo ""
-echo "Base URL: ${api_base}"
-echo ""
-echo "Contoh Penggunaan:"
-echo " Trial : ${api_base}/trial/zivpn?exp=60&auth=${api_key}"
-echo " Create: ${api_base}/create/zivpn?password=PASS&exp=30&auth=${api_key}"
-echo " Renew : ${api_base}/renew/zivpn?password=PASS&exp=30&auth=${api_key}"
-echo " Delete: ${api_base}/delete/zivpn?password=PASS&auth=${api_key}"
-echo ""
 echo "Lokasi file: $key_file"
+echo "Permission : $(stat -c %a "$key_file")"
 echo ""
 read -p "Tekan Enter untuk kembali ke menu..."
 }
@@ -567,10 +316,13 @@ local EXPIRE_FORMATTED
 EXPIRE_FORMATTED=$(date -d "@$expiry_date" +"%d %B %Y %H:%M")
 ip=$(cat /etc/zivpn/ip.txt)
 isp=$(cat /etc/zivpn/isp.txt)
+CERT_CN=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p')
 local host
-host=$(get_active_domain)
-local api_key
-api_key=$(cat /etc/zivpn/api_auth.key 2>/dev/null || echo "N/A")
+if [ "$CERT_CN" == "zivpn" ]; then
+host=$(cat /etc/zivpn/ip.txt)
+else
+host=$CERT_CN
+fi
 clear
 echo "Success:"
 echo "TRIAL AKUN ZIVPN"
@@ -612,7 +364,29 @@ return
 fi
 local result
 result=$(_create_trial_account_logic "$minutes")
+if [[ "$result" == "Success"* ]]; then
+local password
+password=$(echo "$result" | sed -n "s/Success: Trial account '\([^']*\)'.*/\1/p")
+local db_file="/etc/zivpn/users.db"
+local user_line
+user_line=$(grep "^${password}:" "$db_file")
+if [ -n "$user_line" ]; then
+local expiry_date
+expiry_date=$(echo "$user_line" | cut -d: -f2)
+local CERT_CN
+CERT_CN=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p')
+local HOST
+if [ "$CERT_CN" == "zivpn" ]; then
+HOST=$(cat /etc/zivpn/ip.txt)
+else
+HOST=$CERT_CN
+fi
+local EXPIRE_FORMATTED
+EXPIRE_FORMATTED=$(date -d "@$expiry_date" +"%d %B %Y %H:%M:%S")
+fi
+else
 echo "$result"
+fi
 read -p "Tekan Enter untuk kembali ke menu..."
 }
 
@@ -647,8 +421,13 @@ local new_expiry_formatted
 new_expiry_formatted=$(date -d "@$new_expiry_date" +"%d %B %Y %H:%M")
 ip=$(cat /etc/zivpn/ip.txt)
 isp=$(cat /etc/zivpn/isp.txt)
+CERT_CN=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p')
 local host
-host=$(get_active_domain)
+if [ "$CERT_CN" == "zivpn" ]; then
+host=$(cat /etc/zivpn/ip.txt)
+else
+host=$CERT_CN
+fi
 clear
 echo "Success:"
 echo "RENEW AKUN ZIVPN"
@@ -693,7 +472,17 @@ return
 fi
 local result
 result=$(_renew_account_logic "$password" "$days")
+if [[ "$result" == "Success"* ]]; then
+local db_file="/etc/zivpn/users.db"
+local user_line
+user_line=$(grep "^${password}:" "$db_file")
+local new_expiry_date
+new_expiry_date=$(echo "$user_line" | cut -d: -f2)
+local new_expiry_formatted
+new_expiry_formatted=$(date -d "@$new_expiry_date" +"%d %B %Y")
+else
 echo "$result"
+fi
 read -p "Tekan Enter untuk kembali ke menu..."
 }
 
@@ -717,8 +506,13 @@ mv "$tmp_config_file" "$config_file"
 restart_zivpn
 ip=$(cat /etc/zivpn/ip.txt)
 isp=$(cat /etc/zivpn/isp.txt)
+CERT_CN=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p')
 local host
-host=$(get_active_domain)
+if [ "$CERT_CN" == "zivpn" ]; then
+host=$(cat /etc/zivpn/ip.txt)
+else
+host=$CERT_CN
+fi
 clear
 echo "Success:"
 echo "DELETE AKUN ZIVPN"
@@ -769,55 +563,17 @@ read -p "Tekan Enter untuk kembali ke menu..."
 
 function change_domain() {
 echo "─────────────── Change Domain ───────────────"
-echo "1) Ganti Domain + SSL (acme.sh / Let's Encrypt)"
-echo "2) Ganti Domain Manual (Self-Signed)"
-echo "0) Kembali"
-read -p "Pilih: " opt
-case $opt in
-1)
-  echo ""
-  local server_ip
-  server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
-  echo -e "  ${_Y}IP server ini: ${_W}${server_ip}${NC}"
-  echo -e "  ${_Y}Pastikan DNS A record domain sudah pointing ke IP di atas sebelum lanjut.${NC}"
-  echo ""
-  local domain=""
-  while true; do
-    read -p "  Masukkan domain (contoh: vpn.example.com): " domain
-    domain=$(echo "$domain" | tr -d ' ' | tr '[:upper:]' '[:lower:]')
-    if [ -z "$domain" ]; then echo -e "  ${_R}Domain tidak boleh kosong.${NC}"; continue; fi
-    if ! echo "$domain" | grep -qE '^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)+$'; then
-      echo -e "  ${_R}Format domain tidak valid.${NC}"; continue
-    fi
-    read -p "  Domain: ${domain} — Sudah benar? (y/n): " confirm
-    [[ "$confirm" =~ ^[Yy]$ ]] && break
-  done
-  # Simpan domain conf
-  printf 'DOMAIN=%s\nSERVER_IP=%s\nSSL_ENABLED=true\n' "$domain" "$server_ip" > "$DOMAIN_CONF"
-  # Pasang SSL dengan acme.sh
-  issue_ssl_acme "$domain"
-  # Setup nginx
-  setup_nginx_ssl_proxy "$domain"
-  echo ""
-  _ok "Domain baru  : ${domain}"
-  _ok "API URL      : https://${domain}"
-  restart_zivpn
-  ;;
-2)
-  read -p "Enter the new domain name: " domain
-  if [ -z "$domain" ]; then echo "Domain cannot be empty."; return; fi
-  openssl req -x509 -newkey rsa:4096 -days 365 -nodes \
-    -subj "/C=US/ST=Jakarta/L=Jakarta/O=NexusDev/OU=VPN/CN=${domain}" \
-    -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" 2>/dev/null
-  chmod 600 /etc/zivpn/zivpn.key
-  local server_ip; server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
-  printf 'DOMAIN=%s\nSERVER_IP=%s\nSSL_ENABLED=false\n' "$domain" "$server_ip" > "$DOMAIN_CONF"
-  setup_nginx_ssl_proxy "$domain"
-  echo "Self-signed certificate generated untuk ${domain}."
-  restart_zivpn
-  ;;
-esac
-read -p "Tekan Enter untuk kembali ke menu..."
+read -p "Enter the new domain name for the SSL certificate: " domain
+if [ -z "$domain" ]; then
+echo "Domain name cannot be empty."
+return
+fi
+echo "Generating new certificate for domain '${domain}'..."
+openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
+-subj "/C=US/ST=California/L=Los Angeles/O=Example Corp/OU=IT Department/CN=${domain}" \
+-keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt"
+echo "New certificate generated."
+restart_zivpn
 }
 
 function _save_total_users() {
@@ -864,9 +620,209 @@ echo ""
 read -p "Press Enter to return to the menu..."
 }
 
+function check_online_users() {
+clear
+local W='\033[1;37m'
+local G='\033[1;32m'
+local R='\033[0;31m'
+local Y='\033[1;33m'
+local C='\033[0;36m'
+local N='\033[0m'
+
+echo -e "${C}┌──────────────────────────────────────────────────────┐"
+echo -e "${C}│${W}         👥  User Online / Sedang Login             ${C}│"
+echo -e "${C}└──────────────────────────────────────────────────────┘${N}"
+echo ""
+
+local db_file="/etc/zivpn/users.db"
+local config_file="/etc/zivpn/config.json"
+
+# ── Ambil semua password terdaftar dari config.json ──────────
+local all_users=()
+if [ -f "$config_file" ]; then
+  mapfile -t all_users < <(jq -r '.auth.config[]' "$config_file" 2>/dev/null)
+fi
+
+if [ ${#all_users[@]} -eq 0 ]; then
+  echo -e "  ${Y}⚠  Tidak ada akun terdaftar.${N}"
+  echo ""
+  read -p "Tekan Enter untuk kembali..."
+  return
+fi
+
+# ── Ambil koneksi aktif dari ss/netstat ──────────────────────
+# ZiVPN UDP biasanya port 1-65535, kita cek semua established conn
+local active_conns
+active_conns=$(ss -tunp 2>/dev/null | grep ESTAB)
+
+# ── Cek via log zivpn jika ada ───────────────────────────────
+local zivpn_log=""
+for logpath in /var/log/zivpn.log /var/log/zivpn/access.log /tmp/zivpn.log /etc/zivpn/zivpn.log; do
+  if [ -f "$logpath" ]; then
+    zivpn_log="$logpath"
+    break
+  fi
+done
+
+# ── Cek /proc/net untuk koneksi UDP aktif ───────────────────
+local udp_conns
+udp_conns=$(cat /proc/net/udp 2>/dev/null | awk 'NR>1 {print $3}' | while read hex_ip; do
+  printf '%d.%d.%d.%d\n' \
+    $((16#${hex_ip:6:2})) \
+    $((16#${hex_ip:4:2})) \
+    $((16#${hex_ip:2:2})) \
+    $((16#${hex_ip:0:2}))
+done 2>/dev/null | sort -u | grep -v "^0\.0\.0\.0$")
+
+# ── Ambil IP koneksi aktif dari iptables conntrack ───────────
+local conntrack_ips=""
+if command -v conntrack &>/dev/null; then
+  conntrack_ips=$(conntrack -L 2>/dev/null | grep -i "ESTABLISHED\|udp" | awk -F'src=' '{print $2}' | awk '{print $1}' | sort -u)
+elif [ -f /proc/net/ip_conntrack ]; then
+  conntrack_ips=$(awk '/ESTABLISHED|udp/{for(i=1;i<=NF;i++) if($i~/^src=/){split($i,a,"="); print a[2]}}' /proc/net/ip_conntrack 2>/dev/null | sort -u)
+fi
+
+# ── Gabungkan semua IP aktif ──────────────────────────────────
+local all_active_ips
+all_active_ips=$(echo -e "${udp_conns}\n${conntrack_ips}" | grep -v '^$' | sort -u)
+
+# ── Cek tiap user apakah ada di sesi aktif ───────────────────
+local online_count=0
+local online_list=()
+local offline_list=()
+local current_ts
+current_ts=$(date +%s)
+
+printf "${C}  %-20s  %-8s  %-16s  %s${N}\n" "Password" "Status" "IP Koneksi" "Sisa Waktu"
+echo -e "${C}  ──────────────────────────────────────────────────────${N}"
+
+for user in "${all_users[@]}"; do
+  [ -z "$user" ] && continue
+
+  # Cek expiry dari users.db
+  local expiry_ts=""
+  local sisa_hari=""
+  if [ -f "$db_file" ]; then
+    local db_line
+    db_line=$(grep "^${user}:" "$db_file" 2>/dev/null | tail -1)
+    if [ -n "$db_line" ]; then
+      expiry_ts=$(echo "$db_line" | cut -d: -f2)
+      local sisa_sec=$(( expiry_ts - current_ts ))
+      if [ "$sisa_sec" -le 0 ]; then
+        sisa_hari="${R}Expired${N}"
+      elif [ "$sisa_sec" -lt 86400 ]; then
+        local sisa_jam=$(( sisa_sec / 3600 ))
+        sisa_hari="${Y}${sisa_jam}j${N}"
+      else
+        sisa_hari="${G}$(( sisa_sec / 86400 ))hr${N}"
+      fi
+    else
+      sisa_hari="${Y}?${N}"
+    fi
+  fi
+
+  # Cek apakah user online:
+  # Metode 1: cek dari log zivpn jika ada
+  local user_ip="-"
+  local is_online=0
+
+  if [ -n "$zivpn_log" ]; then
+    local log_match
+    log_match=$(grep -i "$user" "$zivpn_log" 2>/dev/null | grep -i "login\|connect\|auth\|online\|session" | tail -1)
+    if [ -n "$log_match" ]; then
+      # Ekstrak IP dari log
+      local ip_from_log
+      ip_from_log=$(echo "$log_match" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+      [ -n "$ip_from_log" ] && user_ip="$ip_from_log"
+      is_online=1
+    fi
+  fi
+
+  # Metode 2: cek dari /var/run atau pid file zivpn jika ada
+  if [ "$is_online" -eq 0 ]; then
+    for runfile in /var/run/zivpn/*.pid /tmp/zivpn_session_* /etc/zivpn/sessions/*; do
+      if [ -f "$runfile" ] 2>/dev/null; then
+        if grep -q "$user" "$runfile" 2>/dev/null; then
+          local ip_from_run
+          ip_from_run=$(grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' "$runfile" | head -1)
+          [ -n "$ip_from_run" ] && user_ip="$ip_from_run"
+          is_online=1
+          break
+        fi
+      fi
+    done
+  fi
+
+  # Metode 3: cek dari journalctl log service zivpn (5 menit terakhir)
+  if [ "$is_online" -eq 0 ]; then
+    local journal_match
+    journal_match=$(journalctl -u zivpn.service --since "5 minutes ago" --no-pager -q 2>/dev/null | grep -i "$user" | tail -1)
+    if [ -n "$journal_match" ]; then
+      local ip_from_journal
+      ip_from_journal=$(echo "$journal_match" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+      [ -n "$ip_from_journal" ] && user_ip="$ip_from_journal"
+      is_online=1
+    fi
+  fi
+
+  # Tampilkan hasil
+  if [ "$is_online" -eq 1 ]; then
+    printf "  ${G}%-20s  %-8s${N}  %-16s  " "$user" "● ONLINE" "$user_ip"
+    echo -e "${sisa_hari}"
+    online_count=$((online_count + 1))
+    online_list+=("$user")
+  else
+    printf "  ${W}%-20s  ${R}%-8s${N}  %-16s  " "$user" "○ OFFLINE" "-"
+    echo -e "${sisa_hari}"
+  fi
+done
+
+echo -e "${C}  ──────────────────────────────────────────────────────${N}"
+echo ""
+
+# ── Tampilkan koneksi jaringan aktif (semua IP ke server) ────
+echo -e "${C}┌──────────── Koneksi Jaringan Aktif ─────────────────┐${N}"
+local active_tcp
+active_tcp=$(ss -tnp state established 2>/dev/null | awk 'NR>1 {print $4, $5}' | grep -v "127.0.0.1\|::1" | head -20)
+
+if [ -n "$active_tcp" ]; then
+  printf "  ${W}%-25s  %s${N}\n" "Remote IP:Port" "Process"
+  echo -e "${C}  ──────────────────────────────────────────${N}"
+  ss -tnp state established 2>/dev/null | awk 'NR>1' | while read -r line; do
+    local peer sport proc
+    peer=$(echo "$line" | awk '{print $5}')
+    sport=$(echo "$line" | awk '{print $4}')
+    proc=$(echo "$line" | grep -oP '"[^"]+"' | head -1 | tr -d '"')
+    [ -z "$peer" ] && continue
+    [[ "$peer" == "127.0.0.1"* || "$peer" == "::1"* ]] && continue
+    printf "  ${G}%-25s${N}  %-10s  ${C}%s${N}\n" "$peer" "$sport" "${proc:-zivpn}"
+  done | head -15
+else
+  echo -e "  ${Y}Tidak ada koneksi TCP established terdeteksi.${N}"
+fi
+echo -e "${C}└─────────────────────────────────────────────────────┘${N}"
+echo ""
+
+# ── Summary ──────────────────────────────────────────────────
+local total_users=${#all_users[@]}
+echo -e "${C}  ┌─────────────────────────────────┐${N}"
+printf  "${C}  │${W} Total Akun   : ${G}%-14s${C} │${N}\n" "$total_users"
+printf  "${C}  │${W} Online       : ${G}%-14s${C} │${N}\n" "$online_count"
+printf  "${C}  │${W} Offline      : ${W}%-14s${C} │${N}\n" "$((total_users - online_count))"
+echo -e "${C}  └─────────────────────────────────┘${N}"
+echo ""
+echo -e "  ${Y}ℹ  Catatan: Status online dideteksi dari log service,${N}"
+echo -e "  ${Y}   session file, dan journalctl. Akurasi tergantung${N}"
+echo -e "  ${Y}   pada versi ZiVPN yang digunakan.${N}"
+echo ""
+read -p " Tekan Enter untuk kembali ke menu..."
+}
+
 function format_kib_to_human() {
 local kib=$1
-if ! [[ "$kib" =~ ^[0-9]+$ ]] || [ -z "$kib" ]; then kib=0; fi
+if ! [[ "$kib" =~ ^[0-9]+$ ]] || [ -z "$kib" ]; then
+kib=0
+fi
 if [ "$kib" -lt 1048576 ]; then
 awk -v val="$kib" 'BEGIN { printf "%.2f MiB", val / 1024 }'
 else
@@ -886,28 +842,27 @@ ip_info=$(cat /etc/zivpn/ip.txt)
 isp_info=$(cat /etc/zivpn/isp.txt)
 ip_info=${ip_info:-"N/A"}
 isp_info=${isp_info:-"N/A"}
-host_info=$(get_active_domain)
+local CERT_CN
+CERT_CN=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p' 2>/dev/null || echo "")
+if [ "$CERT_CN" == "zivpn" ] || [ -z "$CERT_CN" ]; then
+host_info=$ip_info
+else
+host_info=$CERT_CN
+fi
 host_info=${host_info:-"N/A"}
 cpu_name=$(lscpu | grep "Model name" | cut -d: -f2 | sed 's/^[ \t]*//')
 cpu_cores=$(nproc)
 mem_total=$(free -h | awk '/Mem:/ {print $2}')
 mem_used=$(free -h | awk '/Mem:/ {print $3}')
+mem_percent=$(free | awk '/Mem:/ {printf "%.0f%%", $3/$2*100}')
 disk_total=$(df -h / | awk 'NR==2 {print $2}')
 disk_used=$(df -h / | awk 'NR==2 {print $3}')
+disk_avail=$(df -h / | awk 'NR==2 {print $4}')
 disk_percent=$(df -h / | awk 'NR==2 {print $5}')
 uptime_info=$(uptime -p)
-bw_today=$(vnstat -d | awk '/'"$(date +%Y-%m-%d)"'/ {print $5 " " $6}')
-bw_month=$(vnstat -m | awk '/'"$(date +%Y-%m)"'/ {print $5 " " $6}')
-
-# SSL status
-local ssl_status="HTTP (No SSL)"
-if [ -f "$DOMAIN_CONF" ]; then
-  source "$DOMAIN_CONF"
-  if [ "${SSL_ENABLED}" = "true" ]; then
-    ssl_status="HTTPS ✔ (${DOMAIN})"
-  fi
-fi
-
+iface=$(ip route | grep default | awk '{print $5}')
+bw_today=$(vnstat -d | awk '/'$(date +%Y-%m-%d)'/ {print $5 " " $6}')
+bw_month=$(vnstat -m | awk '/'$(date +%Y-%m)'/ {print $5 " " $6}')
 if [ -f "$LICENSE_INFO_FILE" ]; then
 source "$LICENSE_INFO_FILE"
 client_name=${CLIENT_NAME:-"N/A"}
@@ -934,7 +889,9 @@ total_users=$(cat /etc/zivpn/total_users.txt)
 apikey=$(cat /etc/zivpn/api_auth.key 2>/dev/null || echo "N/A")
 VERSI_URL="https://raw.githubusercontent.com/AutoNV/udpzivpn/main/versi.txt"
 versisc=$(curl -fsSL "$VERSI_URL" 2>/dev/null | tr -d ' \r\n')
-if [ -z "$versisc" ]; then versisc="UNKNOWN"; fi
+if [ -z "$versisc" ]; then
+versisc="UNKNOWN"
+fi
 
   local W='\033[1;37m'
   local G='\033[1;32m'
@@ -943,8 +900,7 @@ if [ -z "$versisc" ]; then versisc="UNKNOWN"; fi
 
   printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "OS"      "${os_info}"
   printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "IP"      "${ip_info}"
-  printf "${C}│${W} %-10s ${C}:${G} %s${N}\n"   "Domain"  "${host_info}"
-  printf "${C}│${W} %-10s ${C}:${G} %s${N}\n"   "SSL"     "${ssl_status}"
+  printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "Host"    "${host_info}"
   printf "${C}│${W} %-10s ${C}:${G} %s${N}\n"   "Client"  "${client_name}"
   printf "${C}│${W} %-10s ${C}:${G} %s${N}\n"   "EXP"     "${license_exp}"
   printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "RAM"     "${mem_used} / ${mem_total}"
@@ -963,60 +919,58 @@ function _draw_service_status() {
   local C='\033[0;36m'
   local N='\033[0m'
 
+  # Status ZiVPN
   local sv1; sv1=$(systemctl is-active "zivpn.service" 2>/dev/null || echo "unknown")
   local st1 sc1
   case "$sv1" in
-    active)     st1="ON";  sc1="$G" ;;
-    inactive)   st1="OFF"; sc1="$R" ;;
-    failed)     st1="ERR"; sc1="$R" ;;
-    activating) st1="..."; sc1="$Y" ;;
-    *)          st1="OFF"; sc1="$R" ;;
+    active)       st1="ON";  sc1="$G" ;;
+    inactive)     st1="OFF"; sc1="$R" ;;
+    failed)       st1="ERR"; sc1="$R" ;;
+    activating)   st1="..."; sc1="$Y" ;;
+    *)            st1="OFF"; sc1="$R" ;;
   esac
 
+  # Status API
   local sv2; sv2=$(systemctl is-active "zivpn-api.service" 2>/dev/null || echo "unknown")
   local st2 sc2
   case "$sv2" in
-    active)     st2="ON";  sc2="$G" ;;
-    inactive)   st2="OFF"; sc2="$R" ;;
-    failed)     st2="ERR"; sc2="$R" ;;
-    activating) st2="..."; sc2="$Y" ;;
-    *)          st2="OFF"; sc2="$R" ;;
+    active)       st2="ON";  sc2="$G" ;;
+    inactive)     st2="OFF"; sc2="$R" ;;
+    failed)       st2="ERR"; sc2="$R" ;;
+    activating)   st2="..."; sc2="$Y" ;;
+    *)            st2="OFF"; sc2="$R" ;;
   esac
 
-  # Nginx SSL proxy status
-  local sv3; sv3=$(systemctl is-active "nginx" 2>/dev/null || echo "unknown")
-  local st3 sc3
-  case "$sv3" in
-    active)     st3="ON";  sc3="$G" ;;
-    *)          st3="OFF"; sc3="$R" ;;
-  esac
-
+  # Status Service ZI
   local rule_ok="no"
   iptables -t nat -S PREROUTING 2>/dev/null | grep -qE "6000:19999|:5667" && rule_ok="yes"
-  local st4 sc4
-  if [ "$rule_ok" = "yes" ]; then st4="ON";  sc4="$G"
-  else                             st4="OFF"; sc4="$R"
+  local st3 sc3
+  if [ "$rule_ok" = "yes" ]; then st3="ON";  sc3="$G"
+  else                             st3="OFF"; sc3="$R"
   fi
 
-  printf "${C}│${W} ZiVPN ${C}:${sc1}%-3s${W}  API ${C}:${sc2}%-3s${W}  Nginx SSL ${C}:${sc3}%-3s${W}  ZI ${C}:${sc4}%s${N}\n" \
-         "$st1" "$st2" "$st3" "$st4"
+  printf "${C}│${W} ZiVPN ${C}:${sc1}%-3s${W}  API ${C}:${sc2}%-3s${W}  Service ZI ${C}:${sc3}%s${N}\n" \
+         "$st1" "$st2" "$st3"
 }
 
 function setup_auto_backup() {
 echo "─── Configure Auto Backup ───"
 if [ ! -f "/etc/zivpn/telegram.conf" ]; then
-echo "Telegram is not configured."
+echo "Telegram is not configured. Please run a manual backup once to set it up."
 return
 fi
 read -p "Enter backup interval in hours (e.g., 6, 12, 24). Enter 0 to disable: " interval
-if ! [[ "$interval" =~ ^[0-9]+$ ]]; then echo "Invalid input."; return; fi
+if ! [[ "$interval" =~ ^[0-9]+$ ]]; then
+echo "Invalid input. Please enter a number."
+return
+fi
 (crontab -l 2>/dev/null | grep -v "# zivpn-auto-backup") | crontab -
 if [ "$interval" -gt 0 ]; then
 local cron_schedule="0 */${interval} * * *"
 (crontab -l 2>/dev/null; echo "${cron_schedule} /usr/local/bin/zivpn_helper.sh backup >/dev/null 2>&1 # zivpn-auto-backup") | crontab -
-echo "Auto backup scheduled every ${interval} hour(s)."
+echo "Auto backup scheduled to run every ${interval} hour(s)."
 else
-echo "Auto backup disabled."
+echo "Auto backup has been disabled."
 fi
 }
 
@@ -1084,154 +1038,28 @@ echo -e "${CYAN}     PILIH JAM AUTO REBOOT     ${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 for i in $(seq 1 24); do
-if [[ "$i" -eq 24 ]]; then printf "%2d) Jam 00:00\n" "$i"
-else printf "%2d) Jam %02d:00\n" "$i" "$i"; fi
+if [[ "$i" -eq 24 ]]; then
+printf "%2d) Jam 00:00\n" "$i"
+else
+printf "%2d) Jam %02d:00\n" "$i" "$i"
+fi
 done
 echo " 0) Hapus Auto Reboot"
 echo ""
 read -rp "Pilih [1-24 / 0]: " choice
-if [[ "$choice" == "0" ]]; then remove_reboot_schedule; return; fi
+if [[ "$choice" == "0" ]]; then
+remove_reboot_schedule
+return
+fi
 if [[ "$choice" -ge 1 && "$choice" -le 24 ]]; then
-if [[ "$choice" -eq 24 ]]; then set_reboot_at_time 0
-else set_reboot_at_time "$choice"; fi
+if [[ "$choice" -eq 24 ]]; then
+set_reboot_at_time 0
+else
+set_reboot_at_time "$choice"
+fi
 else
 echo -e "${RED}❌ Pilihan tidak valid${NC}"
 fi
-}
-
-function fix_nginx() {
-clear
-echo -e "${_C}════════════════════════════════════════════${NC}"
-echo -e "${_W}       🔧  Fix / Restart Nginx SSL         ${NC}"
-echo -e "${_C}════════════════════════════════════════════${NC}"
-echo ""
-
-local domain
-domain=$(get_active_domain)
-local server_ip
-server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
-
-if [ -z "$domain" ] || [ "$domain" = "$server_ip" ]; then
-  _err "Domain belum di-set. Jalankan menu 4 (Ganti Domain) dulu."
-  read -p "Tekan Enter untuk kembali..."
-  return 1
-fi
-
-echo -e "  ${_W}Domain aktif : ${_G}${domain}${NC}"
-echo ""
-echo "  1) Fix Nginx saja (restart + perbaiki config)"
-echo "  2) Fix Nginx + Issue ulang SSL (acme.sh)"
-echo "  0) Kembali"
-echo ""
-read -p "  Pilih: " fix_opt
-
-case "$fix_opt" in
-  2)
-    _hdr "Re-issue SSL via acme.sh"
-    issue_ssl_acme "$domain"
-    ;;
-  0) return ;;
-esac
-
-# Step 1: Pastikan nginx terinstall
-_progress "Cek instalasi nginx"
-if ! command -v nginx &>/dev/null; then
-  apt install -y nginx >/dev/null 2>&1
-  _ok "Nginx diinstall"
-else
-  _ok "Nginx sudah terinstall"
-fi
-
-# Step 2: Fix SSL cert/key mismatch
-_progress "Cek SSL cert/key"
-_fix_ssl_key_mismatch "$domain"
-
-# Step 3: Tulis ulang config nginx pakai printf (bukan heredoc)
-_progress "Tulis ulang config nginx"
-_write_nginx_config "$domain"
-_ok "Config nginx ditulis ulang (clean)"
-
-# Step 4: Pastikan symlink aktif
-_progress "Aktifkan symlink nginx"
-ln -sf /etc/nginx/sites-available/zivpn-api /etc/nginx/sites-enabled/zivpn-api
-rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
-_ok "Symlink aktif"
-
-# Step 5: Buka port
-_progress "Buka port 80 dan 443"
-iptables -I INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null
-iptables -I INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null
-netfilter-persistent save >/dev/null 2>&1 || true
-_ok "Port 80 dan 443 terbuka"
-
-# Step 6: Test config nginx
-_progress "Test konfigurasi nginx"
-local test_result
-test_result=$(nginx -t 2>&1)
-if echo "$test_result" | grep -q "syntax is ok"; then
-  _ok "Konfigurasi nginx valid"
-else
-  _err "Nginx config masih error:"
-  echo "$test_result" | grep "emerg\|error" | head -5
-  read -p "Tekan Enter untuk kembali..."
-  return 1
-fi
-
-# Step 7: Restart nginx
-_progress "Restart nginx"
-systemctl daemon-reload
-systemctl enable nginx >/dev/null 2>&1
-systemctl restart nginx
-
-sleep 1
-local nginx_status
-nginx_status=$(systemctl is-active nginx 2>/dev/null)
-if [ "$nginx_status" = "active" ]; then
-  _ok "Nginx AKTIF ✔"
-else
-  _err "Nginx masih gagal start"
-  echo ""
-  echo "─── Error log nginx ───"
-  journalctl -u nginx --no-pager -n 20 2>/dev/null | tail -15
-fi
-
-echo ""
-echo -e "${_C}════════════════════════════════════════════${NC}"
-local api_base
-api_base=$(get_api_base_url)
-local api_key
-api_key=$(cat /etc/zivpn/api_auth.key 2>/dev/null || echo "N/A")
-echo -e "${_W} Domain  : ${_G}${domain}${NC}"
-echo -e "${_W} Status  : ${_G}$(systemctl is-active nginx)${NC}"
-echo -e "${_W} API URL : ${_G}${api_base}/trial/zivpn?exp=60&auth=${api_key}${NC}"
-echo -e "${_C}════════════════════════════════════════════${NC}"
-echo ""
-read -p "Tekan Enter untuk kembali ke menu..."
-}
-
-function _auto_fix_nginx_if_down() {
-  # Dipanggil otomatis saat show_menu - fix nginx diam-diam jika mati
-  local nginx_status
-  nginx_status=$(systemctl is-active nginx 2>/dev/null)
-  if [ "$nginx_status" != "active" ]; then
-    # Coba restart dulu (silent)
-    systemctl restart nginx >/dev/null 2>&1
-    sleep 1
-    nginx_status=$(systemctl is-active nginx 2>/dev/null)
-    if [ "$nginx_status" != "active" ]; then
-      # Kalau masih mati, perbaiki config dulu lalu restart
-      local domain
-      domain=$(get_active_domain)
-      local server_ip
-      server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
-      if [ -n "$domain" ] && [ "$domain" != "$server_ip" ]; then
-        # Pastikan symlink ada
-        ln -sf /etc/nginx/sites-available/zivpn-api /etc/nginx/sites-enabled/zivpn-api 2>/dev/null
-        rm -f /etc/nginx/sites-enabled/default 2>/dev/null
-        systemctl restart nginx >/dev/null 2>&1
-      fi
-    fi
-  fi
 }
 
 function show_expired_message_and_exit() {
@@ -1240,15 +1068,17 @@ echo -e "\n${RED}─────────────────────
 echo -e "${RED}          LISENSI ANDA TELAH KEDALUWARSA!             ${NC}"
 echo -e "${RED}──────────────────────────────────────────────────────${NC}\n"
 echo -e "${BOLD_WHITE}Akses ke layanan ZIVPN di server anda telah dihentikan."
-echo -e "Untuk memperpanjang lisensi, silakan hubungi admin https://wa.me/62890 \n"
+echo -e "Segala aktivitas VPN tidak akan berfungsi lagi.\n"
+echo -e "Untuk memperpanjang lisensi dan mengaktifkan kembali layanan,"
+echo -e "silakan hubungi admin https://wa.me/62890 \n"
 echo -e "${LIGHT_GREEN}Setelah diperpanjang, layanan akan aktif kembali secara otomatis.${NC}\n"
 exit 0
 }
 
 function show_menu() {
-if [ -f "/etc/zivpn/.expired" ]; then show_expired_message_and_exit; fi
-# Auto fix nginx jika mati (silent background)
-_auto_fix_nginx_if_down
+if [ -f "/etc/zivpn/.expired" ]; then
+show_expired_message_and_exit
+fi
 clear
 
   local W='\033[1;37m'
@@ -1264,16 +1094,25 @@ clear
   _draw_info_panel
 
   echo -e "${C}├──────────── Service Status ────────────────"
+
   _draw_service_status
 
+  # ── API Key ───────────────────────────────────
   local _kf="/etc/zivpn/api_auth.key"
   local _ak; if [ -f "$_kf" ]; then _ak=$(cat "$_kf"); else _ak="(not set)"; fi
-  local _api_base
-  _api_base=$(get_api_base_url)
   echo -e "${C}├────────────────────────────────────────────"
   printf  "${C}│${W} API Key  ${C}:${G} %s${N}\n" "$_ak"
-  printf  "${C}│${W} API URL  ${C}:${G} %s${N}\n" "${_api_base}/trial/zivpn?exp=60&auth=${_ak}"
 
+  # ── Quick online count di menu utama ──────────
+  local _online_quick=0
+  if command -v journalctl &>/dev/null; then
+    _online_quick=$(journalctl -u zivpn.service --since "5 minutes ago" --no-pager -q 2>/dev/null | grep -ioE 'login|connect|auth ok|authenticated' | wc -l)
+  fi
+  local _total_accs=0
+  [ -f "/etc/zivpn/users.db" ] && _total_accs=$(wc -l < /etc/zivpn/users.db | tr -d ' ')
+  printf  "${C}│${W} Akun     ${C}:${W} Total ${G}%-5s${W}  Online ${G}%s${N}\n" "$_total_accs" "${_online_quick}"
+
+  # ══ Menu 2 kolom ══════════════════════════════
   echo -e "${C}├────────────────────────────────────────────"
   printf  "${C}│${W}  %2s. %-16s    %2s. %s${N}\n"  "1"  "Buat Akun"       "8"  "Lihat API Key"
   printf  "${C}│${W}  %2s. %-16s    %2s. %s${N}\n"  "2"  "Perpanjang"      "9"  "Restart"
@@ -1282,19 +1121,13 @@ clear
   printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "5"  "Daftar Akun"     "12" "Speedtest"
   printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "6"  "Backup/Restore"  "13" "Perbaiki Error"
   printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "7"  "Buat API Key"    "14" "Auto Reboot"
-
-  # Tampilkan peringatan jika Nginx OFF
-  local _ng_st; _ng_st=$(systemctl is-active nginx 2>/dev/null)
-  if [ "$_ng_st" != "active" ]; then
-    printf  "${C}│${W}  %2s. %-16s   ${R}⚠  Nginx SSL OFF → Pilih 15 untuk Fix!${N}\n" "15" "Fix Nginx SSL"
-  else
-    printf  "${C}│${W}  %2s. %-16s${N}\n" "15" "Fix Nginx SSL"
-  fi
+  printf  "${C}│${W}  %2s. %-16s${N}\n"              "15" "User Online 👥"
   echo -e "${C}├────────────────────────────────────────────"
   printf  "${C}│${W}  x) Keluar${N}\n"
   echo -e "${C}└────────────────────────────────────────────┘${N}"
   echo ""
   read -p " Pilih Menu (1-15 atau x): " choice
+  # remap x -> 0
   [[ "$choice" == "x" || "$choice" == "X" ]] && choice=0
 case $choice in
 1) create_account ;;
@@ -1305,21 +1138,17 @@ case $choice in
 6) show_backup_menu ;;
 7) _generate_api_key ;;
 8) _lihat_api_key ;;
-9) systemctl restart zivpn.service --no-block && systemctl restart zivpn-udp.service --no-block && read -p "Tekan Enter..." && /usr/local/bin/zivpn-manager ;;
-10) wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/update.sh -O /usr/local/bin/update-manager && chmod +x /usr/local/bin/update-manager && /usr/local/bin/update-manager && read -p "Tekan Enter..." && /usr/local/bin/zivpn-manager ;;
-11) update_expiry_from_license_url && read -p "Tekan Enter..." && /usr/local/bin/zivpn-manager ;;
-12) wget https://raw.githubusercontent.com/arivpnstores/v4/main/Cdy/speedtest -O /usr/bin/speedtest && chmod +x /usr/bin/speedtest && yes | /usr/bin/speedtest && read -p "Tekan Enter..." && /usr/local/bin/zivpn-manager ;;
-13) wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/fix-zivpn.sh -O /usr/local/bin/fix-zivpn.sh && chmod +x /usr/local/bin/fix-zivpn.sh && /usr/local/bin/fix-zivpn.sh && read -p "Tekan Enter..." && /usr/local/bin/zivpn-manager ;;
+9) systemctl restart zivpn.service --no-block && systemctl restart zivpn-udp.service --no-block && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
+10) wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/update.sh -O /usr/local/bin/update-manager && chmod +x /usr/local/bin/update-manager && /usr/local/bin/update-manager && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
+11) update_expiry_from_license_url && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
+12) wget https://raw.githubusercontent.com/arivpnstores/v4/main/Cdy/speedtest -O /usr/bin/speedtest && chmod +x /usr/bin/speedtest && yes | /usr/bin/speedtest && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
+13) wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/fix-zivpn.sh -O /usr/local/bin/fix-zivpn.sh && chmod +x /usr/local/bin/fix-zivpn.sh && /usr/local/bin/fix-zivpn.sh && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
 14) set_reboot_menu ;;
-15) fix_nginx ;;
+15) check_online_users ;;
 0) exit 0 ;;
-*) echo "Invalid option." ;;
+*) echo "Invalid option. Please try again." ;;
 esac
 }
-
-# ══════════════════════════════════════════════════════════════
-#  SETUP / INSTALL
-# ══════════════════════════════════════════════════════════════
 
 function run_setup() {
 clear
@@ -1333,12 +1162,12 @@ echo ""
 sleep 1.2
 
 # ── Verifikasi lisensi ────────────────────────────
-_hdr "[ 1/9 ] Verifying license..."
+_hdr "[ 1/7 ] Verifying license..."
 _progress "Checking license"
 verify_license
 
 # ── Persiapan sistem ──────────────────────────────
-_hdr "[ 2/9 ] Preparing system..."
+_hdr "[ 2/7 ] Preparing system..."
 export DEBIAN_FRONTEND=noninteractive
 _progress "dpkg configure"
 dpkg --configure -a >/dev/null 2>&1 || true
@@ -1350,7 +1179,7 @@ apt update >/dev/null 2>&1
 _ok "apt updated"
 
 _progress "Installing dependencies"
-apt install -y sudo screen ufw ruby rubygems curl wget python3-pip jq zip vnstat cron dnsutils nginx certbot >/dev/null 2>&1
+apt install -y sudo screen ufw ruby rubygems curl wget python3-pip jq zip vnstat cron >/dev/null 2>&1
 _ok "Dependencies installed"
 
 _progress "iptables-persistent"
@@ -1367,14 +1196,14 @@ update-ca-certificates >/dev/null 2>&1
 _ok "Certificates updated"
 
 # ── Stop service lama ─────────────────────────────
-_hdr "[ 3/9 ] Stopping old services..."
+_hdr "[ 3/7 ] Stopping old services..."
 _progress "Stopping ZiVPN"
 systemctl stop zivpn 2>/dev/null || true
 rm -f /usr/local/bin/zivpn
 _ok "Old service cleared"
 
 # ── Download & install ZiVPN ──────────────────────
-_hdr "[ 4/9 ] Downloading ZiVPN binary..."
+_hdr "[ 4/7 ] Downloading ZiVPN binary..."
 ARCH=$(uname -m)
 case "$ARCH" in
   x86_64)        FILE="zi.sh"  ;;
@@ -1401,7 +1230,7 @@ systemctl enable zivpn >/dev/null 2>&1
 _ok "ZiVPN service started"
 
 # ── vnstat ────────────────────────────────────────
-_hdr "[ 5/9 ] Setting up bandwidth monitor..."
+_hdr "[ 5/7 ] Setting up bandwidth monitor..."
 local net_interface
 net_interface=$(ip -o -4 route show to default | awk '{print $5}' | head -n 1)
 if [ -n "$net_interface" ]; then
@@ -1415,8 +1244,8 @@ else
   _warn "Network interface not detected, skipping vnstat"
 fi
 
-# ── Helper ────────────────────────────────────────
-_hdr "[ 6/9 ] Downloading helper scripts..."
+# ── Helper & config ───────────────────────────────
+_hdr "[ 6/7 ] Downloading helper scripts..."
 _progress "zivpn_helper.sh"
 wget -q -O /usr/local/bin/zivpn_helper.sh \
   https://raw.githubusercontent.com/AutoNV/udpzivpn/main/zivpn_helper.sh
@@ -1430,47 +1259,8 @@ touch /etc/zivpn/users.db
 RANDOM_PASS="zivpn$(shuf -i 10000-99999 -n 1)"
 _ok "Default passwords cleared"
 
-# ══════════════════════════════════════════════════
-# ── Domain Input + SSL acme.sh ────────────────────
-# ══════════════════════════════════════════════════
-_hdr "[ 7/9 ] Setup Domain & SSL..."
-
-# Ambil IP server
-local server_ip
-server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
-if [ -z "$server_ip" ]; then
-  server_ip=$(curl -s https://api.ipify.org 2>/dev/null)
-  echo "$server_ip" > /etc/zivpn/ip.txt
-fi
-
-# Minta user input domain
-local full_domain
-full_domain=$(ask_domain_input)
-
-if [ -n "$full_domain" ]; then
-  _ok "Domain: ${full_domain}"
-
-  # Install acme.sh
-  install_acme_sh
-
-  # Issue SSL
-  issue_ssl_acme "$full_domain"
-
-  # Setup nginx
-  setup_nginx_ssl_proxy "$full_domain"
-
-  _ok "HTTPS API aktif: https://${full_domain}"
-else
-  _warn "Domain tidak diset, menggunakan self-signed cert"
-  openssl req -x509 -newkey rsa:4096 -days 365 -nodes \
-    -subj "/C=US/ST=Jakarta/L=Jakarta/O=NexusDev/OU=VPN/CN=zivpn" \
-    -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" 2>/dev/null
-  chmod 600 /etc/zivpn/zivpn.key
-  full_domain="$server_ip"
-fi
-
-# ── API Setup ─────────────────────────────────────
-_hdr "[ 8/9 ] Setting up REST API..."
+# ── API, cron, manager ────────────────────────────
+_hdr "[ 7/7 ] Setting up REST API & finishing..."
 
 _progress "Node.js check"
 if ! command -v node &>/dev/null; then
@@ -1490,7 +1280,6 @@ cat <<'EOF' > /etc/zivpn/api/package.json
 "dependencies": { "express": "^4.17.1" }
 }
 EOF
-
 cat <<'EOF' > /etc/zivpn/api/api.js
 const express = require('express');
 const { execFile } = require('child_process');
@@ -1542,7 +1331,7 @@ const { exp } = req.query;
 if (!exp) return res.status(400).json({ status: 'error', message: 'Parameter exp is required.' });
 executeZivpnManager('trial_account', [exp], res);
 });
-app.listen(PORT, '127.0.0.1', () => console.log('ZIVPN API server running on 127.0.0.1:' + PORT));
+app.listen(PORT, () => console.log('ZIVPN API server running on port ' + PORT));
 EOF
 
 _progress "npm install"
@@ -1573,20 +1362,15 @@ if [ ! -f /etc/zivpn/api_auth.key ]; then
   echo "$initial_api_key" > /etc/zivpn/api_auth.key
   chmod 600 /etc/zivpn/api_auth.key
 fi
-local api_key_display
-api_key_display=$(cat /etc/zivpn/api_auth.key)
-_ok "API key: ${api_key_display}"
+_ok "API key ready"
 
-# API sekarang via HTTPS (nginx proxy)
-_progress "Port 5888 (internal only)"
-iptables -I INPUT -p tcp --dport 5888 -s 127.0.0.1 -j ACCEPT
-iptables -I INPUT -p tcp --dport 5888 -j DROP  # Block akses langsung dari luar
-_ok "Port 5888 dibatasi hanya localhost"
-
-# ── Cron, license checker, dll ────────────────────
-_hdr "[ 9/9 ] Finalizing..."
+_progress "Firewall port 5888"
+iptables -I INPUT -p tcp --dport 5888 -j ACCEPT
+_ok "Port 5888 opened"
 
 _progress "License checker cron"
+# license checker script (unchanged logic)
+mkdir -p /etc/zivpn
 cat > /etc/zivpn/license_checker.sh << 'LCEOF'
 #!/bin/bash
 LICENSE_URL="https://raw.githubusercontent.com/AutoNV/udpzivpn/main/ip2"
@@ -1628,7 +1412,58 @@ chmod +x /etc/zivpn/license_checker.sh
 (crontab -l 2>/dev/null; echo "*/5 * * * * /etc/zivpn/license_checker.sh # zivpn-license-check") | crontab -
 _ok "License checker cron set"
 
-_progress "Expiry check cron"
+_progress "Auto update & watchdog cron"
+chmod +x /usr/local/bin/update-manager 2>/dev/null || true
+(crontab -l 2>/dev/null | grep -v "# zivpn-auto-update") | crontab -
+(crontab -l 2>/dev/null; echo "0 4 * * * /usr/local/bin/update-manager # zivpn-auto-update") | crontab -
+(crontab -l 2>/dev/null | grep -v "# zivpn-auto-start") | crontab -
+(crontab -l 2>/dev/null; echo "*/2 * * * * systemctl is-active --quiet zivpn || systemctl start zivpn # zivpn-auto-start") | crontab -
+_ok "Auto update & watchdog enabled"
+
+_progress "Telegram notification"
+echo "Notifikasi Telegram dapat diatur nanti melalui menu Backup/Restore."
+_ok "Skipped (configure via menu)"
+
+_progress "Installing zivpn-manager"
+cp "$0" /usr/local/bin/zivpn-manager
+chmod +x /usr/local/bin/zivpn-manager
+_ok "zivpn-manager installed"
+
+echo ""
+_sep
+echo -e "${_G}  ✔  Installation completed successfully!${NC}"
+_sep
+echo ""
+sleep 1
+
+if [ -f "/usr/local/bin/zivpn-manager" ]; then
+rm -rf /root/.profile
+cat <<EOF > /root/.profile
+if [ "$BASH" ]; then
+if [ -f ~/.bashrc ]; then
+. ~/.bashrc
+fi
+fi
+mesg n || true
+ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+$WEB_SERVER
+menu
+EOF
+PROFILE_FILE="/root/.bashrc"
+[ -f "/root/.bash_profile" ] && PROFILE_FILE="/root/.bash_profile"
+ALIAS_CMD="alias menu='/usr/local/bin/zivpn-manager'"
+AUTORUN_CMD="/usr/local/bin/zivpn-manager"
+grep -qF "$ALIAS_CMD" "$PROFILE_FILE" || echo "$ALIAS_CMD" >> "$PROFILE_FILE"
+grep -qF "$AUTORUN_CMD" "$PROFILE_FILE" || echo "$AUTORUN_CMD" >> "$PROFILE_FILE"
+_ok "Mode: ZIVPN Only aktif"
+fi
+show_menu
+}
+EXPIRY_DATE=$(date -d "+1 day" +%s)
+echo "Creating a temporary initial account..."
+echo "${RANDOM_PASS}:${EXPIRY_DATE}" >> /etc/zivpn/users.db
+jq --arg pass "$RANDOM_PASS" '.auth.config += [$pass]' /etc/zivpn/config.json > /etc/zivpn/config.json.tmp && mv /etc/zivpn/config.json.tmp /etc/zivpn/config.json
+echo "Setting up expiry check cron job..."
 cat <<'EOF' > /etc/zivpn/expire_check.sh
 DB_FILE="/etc/zivpn/users.db"
 CONFIG_FILE="/etc/zivpn/config.json"
@@ -1640,6 +1475,7 @@ if [ ! -f "$DB_FILE" ]; then exit 0; fi
 while IFS=':' read -r password expiry_date; do
 if [[ -z "$password" ]]; then continue; fi
 if [ "$expiry_date" -le "$CURRENT_DATE" ]; then
+echo "User '${password}' has expired. Deleting permanently."
 jq --arg pass "$password" 'del(.auth.config[] | select(. == $pass))' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
 SERVICE_RESTART_NEEDED=true
 else
@@ -1648,87 +1484,120 @@ fi
 done < "$DB_FILE"
 mv "$TMP_DB_FILE" "$DB_FILE"
 if [ "$SERVICE_RESTART_NEEDED" = true ]; then
+echo "Restarting zivpn service due to user removal."
 systemctl restart zivpn.service
 fi
 exit 0
 EOF
 chmod +x /etc/zivpn/expire_check.sh
+CRON_JOB_EXPIRY="* * * * * /etc/zivpn/expire_check.sh # zivpn-expiry-check"
 (crontab -l 2>/dev/null | grep -v "# zivpn-expiry-check") | crontab -
-(crontab -l 2>/dev/null; echo "* * * * * /etc/zivpn/expire_check.sh # zivpn-expiry-check") | crontab -
-_ok "Expiry check cron set"
-
-_progress "Auto update & watchdog"
-(crontab -l 2>/dev/null | grep -v "# zivpn-auto-update") | crontab -
-(crontab -l 2>/dev/null; echo "0 4 * * * /usr/local/bin/update-manager # zivpn-auto-update") | crontab -
-(crontab -l 2>/dev/null | grep -v "# zivpn-auto-start") | crontab -
-(crontab -l 2>/dev/null; echo "*/2 * * * * systemctl is-active --quiet zivpn || systemctl start zivpn # zivpn-auto-start") | crontab -
-_ok "Auto update & watchdog enabled"
-
-_progress "Installing zivpn-manager"
-cp "$0" /usr/local/bin/zivpn-manager
-chmod +x /usr/local/bin/zivpn-manager
-_ok "zivpn-manager installed"
-
-# ── Akun awal ─────────────────────────────────────
-EXPIRY_DATE_INIT=$(date -d "+1 day" +%s)
-echo "${RANDOM_PASS}:${EXPIRY_DATE_INIT}" >> /etc/zivpn/users.db
-jq --arg pass "$RANDOM_PASS" '.auth.config += [$pass]' /etc/zivpn/config.json > /etc/zivpn/config.json.tmp && mv /etc/zivpn/config.json.tmp /etc/zivpn/config.json
-
-# ── Profile ───────────────────────────────────────
-rm -rf /root/.profile
-cat <<EOF > /root/.profile
-if [ "\$BASH" ]; then
-if [ -f ~/.bashrc ]; then
-. ~/.bashrc
-fi
-fi
-mesg n || true
-ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
-menu
-EOF
-PROFILE_FILE="/root/.bashrc"
-[ -f "/root/.bash_profile" ] && PROFILE_FILE="/root/.bash_profile"
-ALIAS_CMD="alias menu='/usr/local/bin/zivpn-manager'"
-AUTORUN_CMD="/usr/local/bin/zivpn-manager"
-grep -qF "$ALIAS_CMD" "$PROFILE_FILE" || echo "$ALIAS_CMD" >> "$PROFILE_FILE"
-grep -qF "$AUTORUN_CMD" "$PROFILE_FILE" || echo "$AUTORUN_CMD" >> "$PROFILE_FILE"
-_ok "Mode: ZIVPN Only aktif"
-
-echo ""
-_sep
-echo -e "${_G}  ✔  Installation completed successfully!${NC}"
-_sep
-echo ""
-
-# ── Tampilkan ringkasan ────────────────────────────
-local final_domain
-final_domain=$(get_active_domain)
-local final_api_base
-final_api_base=$(get_api_base_url)
-local final_api_key
-final_api_key=$(cat /etc/zivpn/api_auth.key 2>/dev/null || echo "N/A")
-
-echo -e "${_C}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${_C}║${_W}          RINGKASAN INSTALASI ZIVPN            ${_C}║${NC}"
-echo -e "${_C}╠══════════════════════════════════════════════════╣${NC}"
-echo -e "${_C}║${_W} Domain  : ${_G}${final_domain}${NC}"
-echo -e "${_C}║${_W} IP      : ${_G}${server_ip}${NC}"
-echo -e "${_C}║${_W} API KEY : ${_G}${final_api_key}${NC}"
-echo -e "${_C}╠══════════════════════════════════════════════════╣${NC}"
-echo -e "${_C}║${_W} Contoh URL API:${NC}"
-echo -e "${_C}║${_G} ${final_api_base}/trial/zivpn?exp=60&auth=${final_api_key}${NC}"
-echo -e "${_C}║${_G} ${final_api_base}/create/zivpn?password=PASS&exp=30&auth=${final_api_key}${NC}"
-echo -e "${_C}║${_G} ${final_api_base}/renew/zivpn?password=PASS&exp=30&auth=${final_api_key}${NC}"
-echo -e "${_C}║${_G} ${final_api_base}/delete/zivpn?password=PASS&auth=${final_api_key}${NC}"
-echo -e "${_C}╚══════════════════════════════════════════════════╝${NC}"
-echo ""
-sleep 2
-show_menu
+(crontab -l 2>/dev/null; echo "$CRON_JOB_EXPIRY") | crontab -
+echo "Setting up license check script and cron job..."
+cat <<'EOF' > /etc/zivpn/license_checker.sh
+LICENSE_URL="https://raw.githubusercontent.com/AutoNV/udpzivpn/main/ip2"
+LICENSE_INFO_FILE="/etc/zivpn/.license_info"
+EXPIRED_LOCK_FILE="/etc/zivpn/.expired"
+TELEGRAM_CONF="/etc/zivpn/telegram.conf"
+LOG_FILE="/var/log/zivpn_license.log"
+log() {
+echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
-
-# ══════════════════════════════════════════════════════════════
-#  MAIN
-# ══════════════════════════════════════════════════════════════
+function get_host() {
+local CERT_CN
+CERT_CN=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p' 2>/dev/null || echo "")
+if [ "$CERT_CN" == "zivpn" ] || [ -z "$CERT_CN" ]; then
+cat /etc/zivpn/ip.txt
+else
+echo "$CERT_CN"
+fi
+}
+function get_isp() {
+cat /etc/zivpn/isp.txt
+}
+send_telegram_message() {
+local message="$1"
+if [ ! -f "$TELEGRAM_CONF" ]; then
+log "Telegram config not found, skipping notification."
+return
+fi
+source "$TELEGRAM_CONF"
+if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+local api_url="https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"
+curl -s -X POST "$api_url" -d "chat_id=${TELEGRAM_CHAT_ID}" --data-urlencode "text=${message}" -d "parse_mode=Markdown" > /dev/null
+log "Simple telegram notification sent."
+else
+log "Telegram config found but token or chat ID is missing."
+fi
+}
+log "Starting license check..."
+SERVER_IP=$(cat /etc/zivpn/ip.txt)
+if [ -z "$SERVER_IP" ]; then
+log "Error: Failed to retrieve server IP. Exiting."
+exit 1
+fi
+if [ ! -f "$LICENSE_INFO_FILE" ]; then
+log "Error: Local license info file not found. Exiting."
+exit 1
+fi
+source "$LICENSE_INFO_FILE"
+license_data=$(curl -s "$LICENSE_URL")
+if [ $? -ne 0 ] || [ -z "$license_data" ]; then
+log "Error: Failed to connect to license server. Exiting."
+exit 1
+fi
+license_entry=$(echo "$license_data" | grep -w "$SERVER_IP")
+if [ -z "$license_entry" ]; then
+if [ ! -f "$EXPIRED_LOCK_FILE" ]; then
+log "License for IP ${SERVER_IP} has been REVOKED."
+systemctl stop zivpn.service
+touch "$EXPIRED_LOCK_FILE"
+local MSG="Notifikasi Otomatis: Lisensi untuk Klien \`${CLIENT_NAME}\` dengan IP \`${SERVER_IP}\` telah dicabut (REVOKED). Layanan zivpn telah dihentikan."
+send_telegram_message "$MSG"
+fi
+exit 0
+fi
+client_name_remote=$(echo "$license_entry" | awk '{print $1}')
+expiry_date_remote=$(echo "$license_entry" | awk '{print $2}')
+expiry_timestamp_remote=$(date -d "$expiry_date_remote" +%s)
+current_timestamp=$(date +%s)
+if [ "$expiry_date_remote" != "$EXPIRY_DATE" ]; then
+log "Remote license has a different expiry date (${expiry_date_remote}). Updating local file."
+echo "CLIENT_NAME=${client_name_remote}" > "$LICENSE_INFO_FILE"
+echo "EXPIRY_DATE=${expiry_date_remote}" >> "$LICENSE_INFO_FILE"
+CLIENT_NAME=$client_name_remote
+EXPIRY_DATE=$expiry_date_remote
+fi
+if [ "$expiry_timestamp_remote" -le "$current_timestamp" ]; then
+if [ ! -f "$EXPIRED_LOCK_FILE" ]; then
+log "License for IP ${SERVER_IP} has EXPIRED."
+systemctl stop zivpn.service
+touch "$EXPIRED_LOCK_FILE"
+local host
+host=$(get_host)
+local isp
+isp=$(get_isp)
+log "Sending rich expiry notification via helper script..."
+/usr/local/bin/zivpn_helper.sh expiry-notification "$host" "$SERVER_IP" "$CLIENT_NAME" "$isp" "$EXPIRY_DATE"
+fi
+else
+if [ -f "$EXPIRED_LOCK_FILE" ]; then
+log "License for IP ${SERVER_IP} has been RENEWED/ACTIVATED."
+rm "$EXPIRED_LOCK_FILE"
+systemctl start zivpn.service
+local host
+host=$(get_host)
+local isp
+isp=$(get_isp)
+log "Sending rich renewed notification via helper script..."
+/usr/local/bin/zivpn_helper.sh renewed-notification "$host" "$SERVER_IP" "$CLIENT_NAME" "$isp" "$expiry_timestamp_remote"
+else
+log "License is active and valid. No action needed."
+fi
+fi
+log "License check finished."
+exit 0
+EOF
 
 function main() {
 if [ "$#" -gt 0 ]; then
