@@ -862,37 +862,37 @@ clear
   local C='\033[0;36m'
   local N='\033[0m'
 
-  # ══ BOX: Header + Info + Service ═════════════════════════
+  # ══ BOX ═══════════════════════════════════════════════════
   echo -e "${C}┌────────────────────────────────────────────┐"
   echo -e "${C}│${W}        ⚡  Menu Panel ZiVPN  ⚡          ${C}│"
-  echo -e "${C}├────────────────────────────────────────────┤${N}"
+  echo -e "${C}├────────────────────────────────────────────"
 
   _draw_info_panel
 
-  echo -e "${C}├──────────── Service Status ─────────────────┤${N}"
+  echo -e "${C}├──────────── Service Status ────────────────"
 
   _draw_service_status
 
   # ── API Key ───────────────────────────────────
   local _kf="/etc/zivpn/api_auth.key"
   local _ak; if [ -f "$_kf" ]; then _ak=$(cat "$_kf"); else _ak="(not set)"; fi
-  echo -e "${C}├─────────────────────────────────────────────┤"
-  printf  "${C}│${W} API Key    ${C}:${G} %-31s${C}│${N}\n" "$_ak"
+  echo -e "${C}├────────────────────────────────────────────"
+  printf  "${C}│${W} API Key  ${C}:${G} %s${N}\n" "$_ak"
 
   # ══ Menu 2 kolom ══════════════════════════════
-  echo -e "${C}├──────────────────────┬──────────────────────┤"
-  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "1"  "Create Account"    "8"  "View API Auth Key"
-  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "2"  "Renew Account"     "9"  "Restart Service"
-  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "3"  "Delete Account"    "10" "Update Script"
-  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "4"  "Change Domain"     "11" "Update License"
-  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "5"  "List Accounts"     "12" "Speedtest"
-  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "6"  "Backup / Restore"  "13" "Fix Error ZIVPN"
-  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "7"  "Generate API Key"  "14" "Set Auto Reboot"
-  echo -e "${C}├──────────────────────┴──────────────────────┤"
-  printf  "${C}│${W}  x) Exit                                 ${C}│${N}\n"
-  echo -e "${C}└─────────────────────────────────────────────┘${N}"
+  echo -e "${C}├────────────────────┬───────────────────────"
+  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "1"  "Buat Akun"      "8"  "Lihat API Key"
+  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "2"  "Perpanjang"     "9"  "Restart"
+  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "3"  "Hapus Akun"     "10" "Update Script"
+  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "4"  "Ganti Domain"   "11" "Update Lisensi"
+  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "5"  "Daftar Akun"    "12" "Speedtest"
+  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "6"  "Backup/Restore" "13" "Perbaiki Error"
+  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "7"  "Buat API Key"   "14" "Auto Reboot"
+  echo -e "${C}├────────────────────┴───────────────────────"
+  printf  "${C}│${W}  x) Keluar${N}\n"
+  echo -e "${C}└────────────────────────────────────────────┘${N}"
   echo ""
-  read -p " Input Option (1-14 or x): " choice
+  read -p " Pilih Menu (1-14 atau x): " choice
   # remap x -> 0
   [[ "$choice" == "x" || "$choice" == "X" ]] && choice=0
 case $choice in
