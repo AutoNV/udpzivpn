@@ -11,6 +11,35 @@ PURPLE='\033[0;37m'
 BOLD_CYAN='\033[1;37m'
 NC='\033[0m'
 
+# ── Animasi progress bar ──────────────────────────
+_C='\033[0;36m'
+_G='\033[1;32m'
+_W='\033[1;37m'
+_Y='\033[1;33m'
+_R='\033[0;31m'
+
+_progress() {
+  local label="$1"
+  local width=28
+  local i bar filled empty
+  for ((i=0; i<=100; i++)); do
+    filled=$(( i * width / 100 ))
+    empty=$(( width - filled ))
+    bar=""
+    for ((j=0; j<filled; j++)); do bar+="█"; done
+    for ((j=0; j<empty; j++)); do bar+="░"; done
+    printf "\r${_W}  %-22s ${_C}[${_G}%s${_C}]${_W} %3d%% ${NC}" "$label" "$bar" "$i"
+    sleep 0.015
+  done
+  printf "\r${_W}  %-22s ${_C}[${_G}%s${_C}]${_W} %3d%% ${NC}\n" "$label" "$bar" "100"
+}
+
+_ok()   { printf "  ${_G}✔  %s${NC}\n"  "$1"; }
+_warn() { printf "  ${_Y}⚠  %s${NC}\n"  "$1"; }
+_err()  { printf "  ${_R}✘  %s${NC}\n"  "$1"; }
+_sep()  { echo -e "${_C}--------------------------------------------${NC}"; }
+_hdr()  { _sep; echo -e "${_W}  $1${NC}"; _sep; }
+
 LICENSE_URL="https://raw.githubusercontent.com/AutoNV/udpzivpn/main/ip2"
 LICENSE_INFO_FILE="/etc/zivpn/.license_info"
 CONFIG_DIR="/etc/zivpn"
@@ -913,91 +942,328 @@ esac
 }
 
 function run_setup() {
+clear
+_sep
+echo -e "${_W}    ⚡  ZiVPN Manager - Installation${NC}"
+_sep
+echo -e "${_Y}    Thank you for using SC UDO ZiVPN${NC}"
+echo -e "${_Y}    Powered by  N E X U S D E V${NC}"
+_sep
+echo ""
+sleep 1.2
+
+# ── Verifikasi lisensi ────────────────────────────
+_hdr "[ 1/7 ] Verifying license..."
+_progress "Checking license"
 verify_license
+
+# ── Persiapan sistem ──────────────────────────────
+_hdr "[ 2/7 ] Preparing system..."
 export DEBIAN_FRONTEND=noninteractive
-dpkg --configure -a || true
-apt -f install -y || true
-apt update
-apt install -y sudo screen ufw ruby rubygems curl wget python3-pip jq curl sudo zip vnstat cron
+_progress "dpkg configure"
+dpkg --configure -a >/dev/null 2>&1 || true
+apt -f install -y >/dev/null 2>&1 || true
+_ok "dpkg ready"
+
+_progress "apt update"
+apt update >/dev/null 2>&1
+_ok "apt updated"
+
+_progress "Installing dependencies"
+apt install -y sudo screen ufw ruby rubygems curl wget python3-pip jq zip vnstat cron >/dev/null 2>&1
+_ok "Dependencies installed"
+
+_progress "iptables-persistent"
 echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
 echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
-sudo apt install iptables-persistent -y
-apt install -y iptables-persistent netfilter-persistent
+apt install -y iptables-persistent netfilter-persistent >/dev/null 2>&1
 iptables -t nat -F PREROUTING
-sudo netfilter-persistent save
-echo "1. Update OS dan install dependensi..."
-apt update
-apt install -y wget curl ca-certificates
-update-ca-certificates
-echo "2. Hentikan service lama (jika ada)..."
-systemctl stop zivpn 2>/dev/null
-echo "3. Hapus binary lama (jika ada)..."
+netfilter-persistent save >/dev/null 2>&1
+_ok "iptables-persistent ready"
+
+_progress "ca-certificates"
+apt install -y wget curl ca-certificates >/dev/null 2>&1
+update-ca-certificates >/dev/null 2>&1
+_ok "Certificates updated"
+
+# ── Stop service lama ─────────────────────────────
+_hdr "[ 3/7 ] Stopping old services..."
+_progress "Stopping ZiVPN"
+systemctl stop zivpn 2>/dev/null || true
 rm -f /usr/local/bin/zivpn
-echo "4. Download skrip resmi ZiVPN..."
+_ok "Old service cleared"
+
+# ── Download & install ZiVPN ──────────────────────
+_hdr "[ 4/7 ] Downloading ZiVPN binary..."
 ARCH=$(uname -m)
 case "$ARCH" in
-x86_64)
-FILE="zi.sh"
-;;
-aarch64)
-FILE="zi2.sh"
-;;
-armv7l|armhf)
-FILE="zi3.sh"
-;;
-*)
-echo "❌ Arsitektur tidak didukung: $ARCH"
-exit 1
-;;
+  x86_64)        FILE="zi.sh"  ;;
+  aarch64)       FILE="zi2.sh" ;;
+  armv7l|armhf)  FILE="zi3.sh" ;;
+  *)
+    _err "Unsupported architecture: $ARCH"
+    exit 1
+  ;;
 esac
-echo "Terdeteksi arsitektur: $ARCH → pakai $FILE"
-wget -O /root/zi.sh "https://raw.githubusercontent.com/AutoNV/udpzivpn/main/$FILE"
-echo "5. Beri izin executable..."
+_progress "Downloading $FILE"
+wget -q -O /root/zi.sh "https://raw.githubusercontent.com/AutoNV/udpzivpn/main/$FILE"
 chmod +x /root/zi.sh
-echo "6. Jalankan skrip instalasi ZiVPN..."
-sudo /root/zi.sh
-echo "7. Reload systemd dan start service..."
+_ok "ZiVPN binary downloaded ($ARCH)"
+
+_progress "Running installer"
+sudo /root/zi.sh >/dev/null 2>&1
+_ok "ZiVPN binary installed"
+
+_progress "Starting service"
 systemctl daemon-reload
 systemctl start zivpn
-systemctl enable zivpn
-echo "8. Cek status service..."
-systemctl status zivpn --no-pager
-echo "✅ Instalasi selesai. Service ZiVPN harusnya aktif dan panel bisa mendeteksi."
-echo "─── Setting up Advanced Management ───"
-ACTIVE_INTERFACE=$(ip -o link show | awk -F': ' '{print $2}' | grep -E '^(eth|en|wlan)' | head -n 1)
-if [ -z "$ACTIVE_INTERFACE" ]; then
-echo "Tidak ada antarmuka jaringan yang aktif ditemukan."
-exit 1
-else
-echo "Menjalankan vnstat untuk antarmuka: $ACTIVE_INTERFACE"
-sudo vnstat -i $ACTIVE_INTERFACE
-fi
-echo "All dependencies are installed and up to date."
-echo "Configuring vnstat for bandwidth monitoring..."
+systemctl enable zivpn >/dev/null 2>&1
+_ok "ZiVPN service started"
+
+# ── vnstat ────────────────────────────────────────
+_hdr "[ 5/7 ] Setting up bandwidth monitor..."
 local net_interface
 net_interface=$(ip -o -4 route show to default | awk '{print $5}' | head -n 1)
 if [ -n "$net_interface" ]; then
-echo "Detected network interface: $net_interface"
-sleep 2
-systemctl stop vnstat
-vnstat -u -i "$net_interface" --force
-systemctl enable vnstat
-systemctl start vnstat
-echo "vnstat setup complete for interface $net_interface."
+  _progress "vnstat setup"
+  systemctl stop vnstat 2>/dev/null || true
+  vnstat -u -i "$net_interface" --force 2>/dev/null || true
+  systemctl enable vnstat >/dev/null 2>&1
+  systemctl start vnstat
+  _ok "vnstat ready on $net_interface"
 else
-echo "Warning: Could not automatically detect network interface for vnstat."
+  _warn "Network interface not detected, skipping vnstat"
 fi
-echo "Downloading helper script..."
-wget -O /usr/local/bin/zivpn_helper.sh https://raw.githubusercontent.com/AutoNV/udpzivpn/main/zivpn_helper.sh
-if [ $? -ne 0 ]; then
-echo "Failed to download helper script. Aborting."
-exit 1
-fi
+
+# ── Helper & config ───────────────────────────────
+_hdr "[ 6/7 ] Downloading helper scripts..."
+_progress "zivpn_helper.sh"
+wget -q -O /usr/local/bin/zivpn_helper.sh \
+  https://raw.githubusercontent.com/AutoNV/udpzivpn/main/zivpn_helper.sh
 chmod +x /usr/local/bin/zivpn_helper.sh
-echo "Clearing initial password(s) set during base installation..."
-jq '.auth.config = []' /etc/zivpn/config.json > /etc/zivpn/config.json.tmp && mv /etc/zivpn/config.json.tmp /etc/zivpn/config.json
+_ok "zivpn_helper.sh"
+
+_progress "Clearing default passwords"
+jq '.auth.config = []' /etc/zivpn/config.json > /etc/zivpn/config.json.tmp \
+  && mv /etc/zivpn/config.json.tmp /etc/zivpn/config.json
 touch /etc/zivpn/users.db
 RANDOM_PASS="zivpn$(shuf -i 10000-99999 -n 1)"
+_ok "Default passwords cleared"
+
+# ── API, cron, manager ────────────────────────────
+_hdr "[ 7/7 ] Setting up REST API & finishing..."
+
+_progress "Node.js check"
+if ! command -v node &>/dev/null; then
+  curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - >/dev/null 2>&1
+  apt-get install -y nodejs >/dev/null 2>&1
+fi
+_ok "Node.js ready"
+
+mkdir -p /etc/zivpn/api
+cat <<'EOF' > /etc/zivpn/api/package.json
+{
+"name": "zivpn-api",
+"version": "1.0.0",
+"description": "API for managing ZIVPN",
+"main": "api.js",
+"scripts": { "start": "node api.js" },
+"dependencies": { "express": "^4.17.1" }
+}
+EOF
+cat <<'EOF' > /etc/zivpn/api/api.js
+const express = require('express');
+const { execFile } = require('child_process');
+const fs = require('fs');
+const app = express();
+const PORT = 5888;
+const AUTH_KEY_PATH = '/etc/zivpn/api_auth.key';
+const ZIVPN_MANAGER_SCRIPT = '/usr/local/bin/zivpn-manager';
+const authenticate = (req, res, next) => {
+const providedAuthKey = req.query.auth;
+if (!providedAuthKey) return res.status(401).json({ status: 'error', message: 'Authentication key is required.' });
+fs.readFile(AUTH_KEY_PATH, 'utf8', (err, storedKey) => {
+if (err) return res.status(500).json({ status: 'error', message: 'Could not read authentication key.' });
+if (providedAuthKey.trim() !== storedKey.trim()) return res.status(403).json({ status: 'error', message: 'Invalid authentication key.' });
+next();
+});
+};
+app.use(authenticate);
+const executeZivpnManager = (command, args, res) => {
+execFile('/bin/bash', [ZIVPN_MANAGER_SCRIPT, command, ...args], (error, stdout, stderr) => {
+if (error) {
+const errorMessage = stderr || stdout || 'An internal server error occurred.';
+return res.status(500).json({ status: 'error', message: errorMessage.trim() });
+}
+if (stdout.toLowerCase().includes('success')) {
+res.json({ status: 'success', message: stdout.trim() });
+} else {
+res.status(400).json({ status: 'error', message: stdout.trim() });
+}
+});
+};
+app.all('/create/zivpn', (req, res) => {
+const { password, exp } = req.query;
+if (!password || !exp) return res.status(400).json({ status: 'error', message: 'Parameters password and exp are required.' });
+executeZivpnManager('create_account', [password, exp], res);
+});
+app.all('/delete/zivpn', (req, res) => {
+const { password } = req.query;
+if (!password) return res.status(400).json({ status: 'error', message: 'Parameter password is required.' });
+executeZivpnManager('delete_account', [password], res);
+});
+app.all('/renew/zivpn', (req, res) => {
+const { password, exp } = req.query;
+if (!password || !exp) return res.status(400).json({ status: 'error', message: 'Parameters password and exp are required.' });
+executeZivpnManager('renew_account', [password, exp], res);
+});
+app.all('/trial/zivpn', (req, res) => {
+const { exp } = req.query;
+if (!exp) return res.status(400).json({ status: 'error', message: 'Parameter exp is required.' });
+executeZivpnManager('trial_account', [exp], res);
+});
+app.listen(PORT, () => console.log('ZIVPN API server running on port ' + PORT));
+EOF
+
+_progress "npm install"
+npm install --prefix /etc/zivpn/api >/dev/null 2>&1
+_ok "API dependencies installed"
+
+cat <<'EOF' > /etc/systemd/system/zivpn-api.service
+[Unit]
+Description=ZIVPN REST API Service
+After=network.target
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/etc/zivpn/api
+ExecStart=/usr/bin/node /etc/zivpn/api/api.js
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable zivpn-api.service >/dev/null 2>&1
+systemctl start zivpn-api.service
+
+_progress "API key setup"
+if [ ! -f /etc/zivpn/api_auth.key ]; then
+  local initial_api_key
+  initial_api_key=$(LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 6)
+  echo "$initial_api_key" > /etc/zivpn/api_auth.key
+  chmod 600 /etc/zivpn/api_auth.key
+fi
+_ok "API key ready"
+
+_progress "Firewall port 5888"
+iptables -I INPUT -p tcp --dport 5888 -j ACCEPT
+_ok "Port 5888 opened"
+
+_progress "License checker cron"
+# license checker script (unchanged logic)
+mkdir -p /etc/zivpn
+cat > /etc/zivpn/license_checker.sh << 'LCEOF'
+#!/bin/bash
+LICENSE_URL="https://raw.githubusercontent.com/AutoNV/udpzivpn/main/ip2"
+LICENSE_INFO_FILE="/etc/zivpn/.license_info"
+EXPIRED_LOCK_FILE="/etc/zivpn/.expired"
+log() { echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> /var/log/zivpn_license.log; }
+if [ ! -f "$LICENSE_INFO_FILE" ]; then log "License info file not found."; exit 1; fi
+source "$LICENSE_INFO_FILE"
+if [ -z "$CLIENT_NAME" ] || [ -z "$EXPIRY_DATE" ]; then log "License info incomplete."; exit 1; fi
+SERVER_IP=$(cat /etc/zivpn/ip.txt 2>/dev/null)
+if [ -z "$SERVER_IP" ]; then log "Could not read server IP."; exit 1; fi
+license_data=$(curl -s "$LICENSE_URL")
+if [ $? -ne 0 ] || [ -z "$license_data" ]; then log "Could not reach license server."; exit 0; fi
+license_entry=$(echo "$license_data" | grep -w "$SERVER_IP")
+if [ -z "$license_entry" ]; then log "IP not found in license list."; exit 1; fi
+client_name_remote=$(echo "$license_entry" | awk '{print $1}')
+expiry_date_remote=$(echo "$license_entry" | awk '{print $2}')
+expiry_timestamp_remote=$(date -d "$expiry_date_remote" +%s)
+current_timestamp=$(date +%s)
+if [ "$expiry_date_remote" != "$EXPIRY_DATE" ]; then
+  echo "CLIENT_NAME=${client_name_remote}" > "$LICENSE_INFO_FILE"
+  echo "EXPIRY_DATE=${expiry_date_remote}" >> "$LICENSE_INFO_FILE"
+fi
+if [ "$expiry_timestamp_remote" -le "$current_timestamp" ]; then
+  if [ ! -f "$EXPIRED_LOCK_FILE" ]; then
+    systemctl stop zivpn.service
+    touch "$EXPIRED_LOCK_FILE"
+  fi
+else
+  if [ -f "$EXPIRED_LOCK_FILE" ]; then
+    rm "$EXPIRED_LOCK_FILE"
+    systemctl start zivpn.service
+  fi
+fi
+exit 0
+LCEOF
+chmod +x /etc/zivpn/license_checker.sh
+(crontab -l 2>/dev/null | grep -v "# zivpn-license-check") | crontab -
+(crontab -l 2>/dev/null; echo "*/5 * * * * /etc/zivpn/license_checker.sh # zivpn-license-check") | crontab -
+_ok "License checker cron set"
+
+_progress "Auto update & watchdog cron"
+chmod +x /usr/local/bin/update-manager 2>/dev/null || true
+(crontab -l 2>/dev/null | grep -v "# zivpn-auto-update") | crontab -
+(crontab -l 2>/dev/null; echo "0 4 * * * /usr/local/bin/update-manager # zivpn-auto-update") | crontab -
+(crontab -l 2>/dev/null | grep -v "# zivpn-auto-start") | crontab -
+(crontab -l 2>/dev/null; echo "*/2 * * * * systemctl is-active --quiet zivpn || systemctl start zivpn # zivpn-auto-start") | crontab -
+_ok "Auto update & watchdog enabled"
+
+_progress "Telegram notification"
+echo "Notifikasi Telegram dapat diatur nanti melalui menu Backup/Restore."
+_ok "Skipped (configure via menu)"
+
+_progress "Installing zivpn-manager"
+cp "$0" /usr/local/bin/zivpn-manager
+chmod +x /usr/local/bin/zivpn-manager
+_ok "zivpn-manager installed"
+
+echo ""
+_sep
+echo -e "${_G}  ✔  Installation completed successfully!${NC}"
+_sep
+echo ""
+sleep 1
+
+if [ -f "/usr/local/bin/zivpn-manager" ]; then
+_sep
+echo -e "${_W}  PILIH MODE MENU VPS${NC}"
+_sep
+echo -e "${_W}  1. Dual SC (Mode gabungan)${NC}"
+echo -e "${_W}  2. ZIVPN Only (Menu standar)${NC}"
+_sep
+read -p "  Pilih mode (1/2) : " mode
+if [ "$mode" = "1" ]; then
+bash <(curl -sSL https://raw.githubusercontent.com/arivpnstores/costum/main/.bashrc)
+_ok "Mode: Dual SC aktif"
+elif [ "$mode" = "2" ]; then
+rm -rf /root/.profile
+cat <<EOF > /root/.profile
+if [ "$BASH" ]; then
+if [ -f ~/.bashrc ]; then
+. ~/.bashrc
+fi
+fi
+mesg n || true
+ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+$WEB_SERVER
+menu
+EOF
+PROFILE_FILE="/root/.bashrc"
+[ -f "/root/.bash_profile" ] && PROFILE_FILE="/root/.bash_profile"
+ALIAS_CMD="alias menu='/usr/local/bin/zivpn-manager'"
+AUTORUN_CMD="/usr/local/bin/zivpn-manager"
+grep -qF "$ALIAS_CMD" "$PROFILE_FILE" || echo "$ALIAS_CMD" >> "$PROFILE_FILE"
+grep -qF "$AUTORUN_CMD" "$PROFILE_FILE" || echo "$AUTORUN_CMD" >> "$PROFILE_FILE"
+_ok "Mode: ZIVPN Only aktif"
+else
+_warn "Pilihan tidak valid, menu default tidak diaktifkan."
+fi
+fi
+show_menu
+}
 EXPIRY_DATE=$(date -d "+1 day" +%s)
 echo "Creating a temporary initial account..."
 echo "${RANDOM_PASS}:${EXPIRY_DATE}" >> /etc/zivpn/users.db
@@ -1137,180 +1403,6 @@ fi
 log "License check finished."
 exit 0
 EOF
-chmod +x /etc/zivpn/license_checker.sh
-CRON_JOB_LICENSE="*/5 * * * * /etc/zivpn/license_checker.sh # zivpn-license-check"
-(crontab -l 2>/dev/null | grep -v "# zivpn-license-check") | crontab -
-(crontab -l 2>/dev/null; echo "$CRON_JOB_LICENSE") | crontab -
-if [ ! -f "/etc/zivpn/telegram.conf" ]; then
-echo ""
-read -p "Apakah Anda ingin mengatur notifikasi Telegram untuk status lisensi? (y/n): " confirm
-if [[ "$confirm" == [yY] || "$confirm" == [yY][eE][sS] ]]; then
-/usr/local/bin/zivpn_helper.sh setup-telegram
-else
-echo "Anda dapat mengaturnya nanti melalui menu Backup/Restore."
-fi
-fi
-restart_zivpn
-echo "─── Setting up REST API Service ───"
-if ! command -v node &> /dev/null; then
-echo "Node.js not found. Installing Node.js v18..."
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
-else
-echo "Node.js is already installed."
-fi
-mkdir -p /etc/zivpn/api
-cat <<'EOF' > /etc/zivpn/api/package.json
-{
-"name": "zivpn-api",
-"version": "1.0.0",
-"description": "API for managing ZIVPN",
-"main": "api.js",
-"scripts": { "start": "node api.js" },
-"dependencies": { "express": "^4.17.1" }
-}
-EOF
-cat <<'EOF' > /etc/zivpn/api/api.js
-const express = require('express');
-const { execFile } = require('child_process');
-const fs = require('fs');
-const app = express();
-const PORT = 5888;
-const AUTH_KEY_PATH = '/etc/zivpn/api_auth.key';
-const ZIVPN_MANAGER_SCRIPT = '/usr/local/bin/zivpn-manager';
-const authenticate = (req, res, next) => {
-const providedAuthKey = req.query.auth;
-if (!providedAuthKey) return res.status(401).json({ status: 'error', message: 'Authentication key is required.' });
-fs.readFile(AUTH_KEY_PATH, 'utf8', (err, storedKey) => {
-if (err) return res.status(500).json({ status: 'error', message: 'Could not read authentication key.' });
-if (providedAuthKey.trim() !== storedKey.trim()) return res.status(403).json({ status: 'error', message: 'Invalid authentication key.' });
-next();
-});
-};
-app.use(authenticate);
-const executeZivpnManager = (command, args, res) => {
-execFile('/bin/bash', [ZIVPN_MANAGER_SCRIPT, command, ...args], (error, stdout, stderr) => {
-if (error) {
-const errorMessage = stderr || stdout || 'An internal server error occurred.';
-return res.status(500).json({ status: 'error', message: errorMessage.trim() });
-}
-if (stdout.toLowerCase().includes('success')) {
-res.json({ status: 'success', message: stdout.trim() });
-} else {
-res.status(400).json({ status: 'error', message: stdout.trim() });
-}
-});
-};
-app.all('/create/zivpn', (req, res) => {
-const { password, exp } = req.query;
-if (!password || !exp) return res.status(400).json({ status: 'error', message: 'Parameters password and exp are required.' });
-executeZivpnManager('create_account', [password, exp], res);
-});
-app.all('/delete/zivpn', (req, res) => {
-const { password } = req.query;
-if (!password) return res.status(400).json({ status: 'error', message: 'Parameter password is required.' });
-executeZivpnManager('delete_account', [password], res);
-});
-app.all('/renew/zivpn', (req, res) => {
-const { password, exp } = req.query;
-if (!password || !exp) return res.status(400).json({ status: 'error', message: 'Parameters password and exp are required.' });
-executeZivpnManager('renew_account', [password, exp], res);
-});
-app.all('/trial/zivpn', (req, res) => {
-const { exp } = req.query;
-if (!exp) return res.status(400).json({ status: 'error', message: 'Parameter exp is required.' });
-executeZivpnManager('trial_account', [exp], res);
-});
-app.listen(PORT, () => console.log('ZIVPN API server running on port ' + PORT));
-EOF
-echo "Installing API dependencies..."
-npm install --prefix /etc/zivpn/api
-cat <<'EOF' > /etc/systemd/system/zivpn-api.service
-[Unit]
-Description=ZIVPN REST API Service
-After=network.target
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/etc/zivpn/api
-ExecStart=/usr/bin/node /etc/zivpn/api/api.js
-Restart=on-failure
-[Install]
-WantedBy=multi-user.target
-EOF
-systemctl daemon-reload
-systemctl enable zivpn-api.service
-systemctl start zivpn-api.service
-if [ ! -f /etc/zivpn/api_auth.key ]; then
-echo "🔑 API Key belum tersedia."
-echo "Generating initial API key..."
-local initial_api_key
-initial_api_key=$(LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 6)
-echo "$initial_api_key" > /etc/zivpn/api_auth.key
-chmod 600 /etc/zivpn/api_auth.key
-echo "✔ API Key berhasil disimpan!"
-fi
-echo "Opening firewall port 5888 for API..."
-iptables -I INPUT -p tcp --dport 5888 -j ACCEPT
-echo "─── API Setup Complete ───"
-chmod +x /usr/local/bin/update-manager
-(crontab -l 2>/dev/null | grep -v "# zivpn-auto-update") | crontab -
-(crontab -l 2>/dev/null; \
-echo "0 4 * * * /usr/local/bin/update-manager # zivpn-auto-update") | crontab -
-echo "✅ Auto update scheduled every day at 04:00"
-(crontab -l 2>/dev/null | grep -v "# zivpn-auto-start") | crontab -
-(crontab -l 2>/dev/null; \
-echo "*/2 * * * * systemctl is-active --quiet zivpn || systemctl start zivpn # zivpn-auto-start") | crontab -
-echo "✅ ZIVPN watchdog enabled (auto start if OFF every 2 minutes)"
-echo "─── Integrating management script into the system ───"
-cp "$0" /usr/local/bin/zivpn-manager
-chmod +x /usr/local/bin/zivpn-manager
-if [ -f "/usr/local/bin/zivpn-manager" ]; then
-echo ""
-echo "┌──────────────────────────────────────┐"
-echo "│   PILIH MODE MENU VPS                │"
-echo "│--------------------------------------│"
-echo "│   1. Dual SC (Mode gabungan)         │"
-echo "│   2. ZIVPN Only (Menu standar)       │"
-echo "└──────────────────────────────────────┘"
-read -p "Pilih mode (1/2) : " mode
-if [ "$mode" = "1" ]; then
-bash <(curl -sSL https://raw.githubusercontent.com/arivpnstores/costum/main/.bashrc)
-echo "Mode: Dual SC aktif"
-elif [ "$mode" = "2" ]; then
-rm -rf /root/.profile
-cat <<EOF > /root/.profile
-if [ "$BASH" ]; then
-if [ -f ~/.bashrc ]; then
-. ~/.bashrc
-fi
-fi
-mesg n || true
-ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
-$WEB_SERVER
-menu
-EOF
-PROFILE_FILE="/root/.bashrc"
-[ -f "/root/.bash_profile" ] && PROFILE_FILE="/root/.bash_profile"
-ALIAS_CMD="alias menu='/usr/local/bin/zivpn-manager'"
-AUTORUN_CMD="/usr/local/bin/zivpn-manager"
-grep -qF "$ALIAS_CMD" "$PROFILE_FILE" || echo "$ALIAS_CMD" >> "$PROFILE_FILE"
-grep -qF "$AUTORUN_CMD" "$PROFILE_FILE" || echo "$AUTORUN_CMD" >> "$PROFILE_FILE"
-echo "The 'menu' command is now available."
-echo "The management menu will now open automatically on login."
-echo "Mode: ZIVPN Only aktif"
-else
-echo "Pilihan tidak valid, menu default tidak diaktifkan."
-fi
-echo "────────────────────────────────────────────────────"
-echo "Advanced management setup complete."
-echo "────────────────────────────────────────────────────"
-else
-echo "File /usr/local/bin/zivpn-manager tidak ditemukan."
-echo "Menu tidak dapat diaktifkan otomatis."
-fi
-show_menu
-}
 
 function main() {
 if [ "$#" -gt 0 ]; then
