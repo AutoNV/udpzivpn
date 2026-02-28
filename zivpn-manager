@@ -671,19 +671,19 @@ fi
   local C='\033[0;36m'
   local N='\033[0m'
 
-  printf "${C}│${W} %-12s ${C}:${W} %-30s         ${C}│${N}\n"  "OS"        "${os_info}"
-  printf "${C}│${W} %-12s ${C}:${W} %-30s         ${C}│${N}\n"  "IP"        "${ip_info}"
-  printf "${C}│${W} %-12s ${C}:${W} %-30s         ${C}│${N}\n"  "Host"      "${host_info}"
-  printf "${C}│${W} %-12s ${C}:${W} ${G}%-14s${W}  %-12s ${C}:${W} ${G}%-8s${W}  ${C}│${N}\n" \
-         "Client" "${client_name}" "EXP" "${license_exp}"
-  printf "${C}│${W} %-12s ${C}:${W} %-30s         ${C}│${N}\n"  "RAM"       "${mem_used} / ${mem_total}"
-  printf "${C}│${W} %-12s ${C}:${W} %-30s         ${C}│${N}\n"  "CPU"       "${cpu_name} (${cpu_cores} cores)"
-  printf "${C}│${W} %-12s ${C}:${W} %-30s         ${C}│${N}\n"  "Disk"      "${disk_used} / ${disk_total} (${disk_percent})"
-  printf "${C}│${W} %-12s ${C}:${W} %-14s  %-8s ${C}:${W} ${G}%-8s${W}  ${C}│${N}\n" \
-         "Uptime" "${uptime_info}" "Users" "${total_users}"
-  printf "${C}│${W} %-12s ${C}:${W} ${G}%-14s${W}  %-8s ${C}:${W} ${G}%-8s${W}  ${C}│${N}\n" \
-         "BW Today" "${bw_today}" "Month" "${bw_month}"
-  printf "${C}│${W} %-12s ${C}:${W} ${G}%-30s${W}         ${C}│${N}\n"  "Version"   "${versisc}"
+  printf "${C}│${W} %-10s ${C}:${W} %-31s${C}│${N}\n"   "OS"      "${os_info}"
+  printf "${C}│${W} %-10s ${C}:${W} %-31s${C}│${N}\n"   "IP"      "${ip_info}"
+  printf "${C}│${W} %-10s ${C}:${W} %-31s${C}│${N}\n"   "Host"    "${host_info}"
+  printf "${C}│${W} %-10s ${C}:${G} %-31s${C}│${N}\n"   "Client"  "${client_name}"
+  printf "${C}│${W} %-10s ${C}:${G} %-31s${C}│${N}\n"   "EXP"     "${license_exp}"
+  printf "${C}│${W} %-10s ${C}:${W} %-31s${C}│${N}\n"   "RAM"     "${mem_used} / ${mem_total}"
+  printf "${C}│${W} %-10s ${C}:${W} %-31s${C}│${N}\n"   "CPU"     "${cpu_name} (${cpu_cores} cores)"
+  printf "${C}│${W} %-10s ${C}:${W} %-31s${C}│${N}\n"   "Disk"    "${disk_used} / ${disk_total} (${disk_percent})"
+  printf "${C}│${W} %-10s ${C}:${W} %-20s ${W}Users${C}:${G}%-5s${C}│${N}\n" \
+         "Uptime" "${uptime_info}" "${total_users}"
+  printf "${C}│${W} %-10s ${C}:${G} %-14s ${W}Month${C}:${G}%-6s${C}│${N}\n" \
+         "BW Today" "${bw_today}" "${bw_month}"
+  printf "${C}│${W} %-10s ${C}:${G} %-31s${C}│${N}\n"   "Version" "${versisc}"
 }
 
 function _draw_service_status() {
@@ -694,31 +694,38 @@ function _draw_service_status() {
   local C='\033[0;36m'
   local N='\033[0m'
 
-  local services=("zivpn.service" "zivpn-api.service")
-  local labels=("ZiVPN" "API")
+  # Status ZiVPN
+  local sv1; sv1=$(systemctl is-active "zivpn.service" 2>/dev/null || echo "unknown")
+  local st1 sc1
+  case "$sv1" in
+    active)       st1="ON";  sc1="$G" ;;
+    inactive)     st1="OFF"; sc1="$R" ;;
+    failed)       st1="ERR"; sc1="$R" ;;
+    activating)   st1="..."; sc1="$Y" ;;
+    *)            st1="OFF"; sc1="$R" ;;
+  esac
 
-  for i in "${!services[@]}"; do
-    local sv
-    sv=$(systemctl is-active "${services[$i]}" 2>/dev/null || echo "unknown")
-    local stxt scol
-    case "$sv" in
-      active)       stxt="Running";  scol="$G" ;;
-      inactive)     stxt="Stopped";  scol="$R" ;;
-      failed)       stxt="Error";    scol="$R" ;;
-      activating)   stxt="Starting"; scol="$Y" ;;
-      deactivating) stxt="Stopping"; scol="$Y" ;;
-      *)            stxt="Unknown";  scol="$R" ;;
-    esac
-    printf "${C}│${W} %-12s ${C}:${W} ${scol}%-s${N}\n" "${labels[$i]}" "$stxt"
-  done
+  # Status API
+  local sv2; sv2=$(systemctl is-active "zivpn-api.service" 2>/dev/null || echo "unknown")
+  local st2 sc2
+  case "$sv2" in
+    active)       st2="ON";  sc2="$G" ;;
+    inactive)     st2="OFF"; sc2="$R" ;;
+    failed)       st2="ERR"; sc2="$R" ;;
+    activating)   st2="..."; sc2="$Y" ;;
+    *)            st2="OFF"; sc2="$R" ;;
+  esac
 
+  # Status Service ZI
   local rule_ok="no"
   iptables -t nat -S PREROUTING 2>/dev/null | grep -qE "6000:19999|:5667" && rule_ok="yes"
-  local rtxt rcol
-  if [ "$rule_ok" = "yes" ]; then rtxt="Active";    rcol="$G"
-  else                             rtxt="Not Found"; rcol="$R"
+  local st3 sc3
+  if [ "$rule_ok" = "yes" ]; then st3="ON";  sc3="$G"
+  else                             st3="OFF"; sc3="$R"
   fi
-  printf "${C}│${W} %-12s ${C}:${W} ${rcol}%-s${N}\n" "Service ZI" "$rtxt"
+
+  printf "${C}│${W} ZiVPN ${C}:${sc1}%-3s${W}  API ${C}:${sc2}%-3s${W}  Service ZI ${C}:${sc3}%-3s${C}  │${N}\n" \
+         "$st1" "$st2" "$st3"
 }
 
 function setup_auto_backup() {
@@ -855,35 +862,35 @@ clear
   local C='\033[0;36m'
   local N='\033[0m'
 
-  # ══ BOX ATAS: Header + Info + Service ═════════════════════
-  echo -e "${C}┌─────────────────────────────────────────────────────┐"
-  echo -e "${C}│${W}              ⚡  Menu Panel ZiVPN  ⚡              ${C}│"
-  echo -e "${C}├─────────────────────────────────────────────────────┤${N}"
+  # ══ BOX: Header + Info + Service ═════════════════════════
+  echo -e "${C}┌────────────────────────────────────────────┐"
+  echo -e "${C}│${W}        ⚡  Menu Panel ZiVPN  ⚡          ${C}│"
+  echo -e "${C}├────────────────────────────────────────────┤${N}"
 
   _draw_info_panel
 
-  echo -e "${C}├──────────────────── Service Status ─────────────────┤${N}"
+  echo -e "${C}├──────────── Service Status ─────────────────┤${N}"
 
   _draw_service_status
 
-  # ── API Key ───────────────────────────────────────────────
+  # ── API Key ───────────────────────────────────
   local _kf="/etc/zivpn/api_auth.key"
   local _ak; if [ -f "$_kf" ]; then _ak=$(cat "$_kf"); else _ak="(not set)"; fi
-  echo -e "${C}├─────────────────────────────────────────────────────┤"
-  printf  "${C}│${W} API Key      ${C}:${G} %-38s${C}│${N}\n" "$_ak"
+  echo -e "${C}├─────────────────────────────────────────────┤"
+  printf  "${C}│${W} API Key    ${C}:${G} %-31s${C}│${N}\n" "$_ak"
 
-  # ══ BOX BAWAH: Menu 2 kolom ═══════════════════════════════
-  echo -e "${C}├──────────────────────────┬──────────────────────────┤"
-  printf  "${C}│${C} %2s${W}. %-20s ${C}│ %2s${W}. %-21s${C}│${N}\n"  "1"  "Create Account"    "8"  "View API Auth Key"
-  printf  "${C}│${C} %2s${W}. %-20s ${C}│ %2s${W}. %-21s${C}│${N}\n"  "2"  "Renew Account"     "9"  "Restart Service"
-  printf  "${C}│${C} %2s${W}. %-20s ${C}│ %2s${W}. %-21s${C}│${N}\n"  "3"  "Delete Account"    "10" "Update Script"
-  printf  "${C}│${C} %2s${W}. %-20s ${C}│ %2s${W}. %-21s${C}│${N}\n"  "4"  "Change Domain"     "11" "Update License"
-  printf  "${C}│${C} %2s${W}. %-20s ${C}│ %2s${W}. %-21s${C}│${N}\n"  "5"  "List Accounts"     "12" "Speedtest"
-  printf  "${C}│${C} %2s${W}. %-20s ${C}│ %2s${W}. %-21s${C}│${N}\n"  "6"  "Backup / Restore"  "13" "Fix Error ZIVPN"
-  printf  "${C}│${C} %2s${W}. %-20s ${C}│ %2s${W}. %-21s${C}│${N}\n"  "7"  "Generate API Key"  "14" "Set Auto Reboot"
-  echo -e "${C}├──────────────────────────┴──────────────────────────┤"
-  printf  "${C}│${W}  x) Exit                                          ${C}│${N}\n"
-  echo -e "${C}└─────────────────────────────────────────────────────┘${N}"
+  # ══ Menu 2 kolom ══════════════════════════════
+  echo -e "${C}├──────────────────────┬──────────────────────┤"
+  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "1"  "Create Account"    "8"  "View API Auth Key"
+  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "2"  "Renew Account"     "9"  "Restart Service"
+  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "3"  "Delete Account"    "10" "Update Script"
+  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "4"  "Change Domain"     "11" "Update License"
+  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "5"  "List Accounts"     "12" "Speedtest"
+  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "6"  "Backup / Restore"  "13" "Fix Error ZIVPN"
+  printf  "${C}│${W} %2s. %-18s ${C}│${W} %2s. %-18s${C}│${N}\n"  "7"  "Generate API Key"  "14" "Set Auto Reboot"
+  echo -e "${C}├──────────────────────┴──────────────────────┤"
+  printf  "${C}│${W}  x) Exit                                 ${C}│${N}\n"
+  echo -e "${C}└─────────────────────────────────────────────┘${N}"
   echo ""
   read -p " Input Option (1-14 or x): " choice
   # remap x -> 0
