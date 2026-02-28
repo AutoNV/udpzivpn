@@ -1,14 +1,14 @@
 #!/bin/bash
 
-YELLOW='\033[1;33m'
+YELLOW='\033[1;37m'
 RED='\033[0;31m'
-LIGHT_BLUE='\033[1;36m'
+LIGHT_BLUE='\033[0;37m'
 BOLD_WHITE='\033[1;37m'
-CYAN='\033[0;36m'
+CYAN='\033[0;37m'
 GREEN='\033[0;32m'
 LIGHT_GREEN='\033[1;32m'
-PURPLE='\033[0;35m'
-BOLD_CYAN='\033[1;36m'
+PURPLE='\033[0;37m'
+BOLD_CYAN='\033[1;37m'
 NC='\033[0m'
 
 LICENSE_URL="https://raw.githubusercontent.com/AutoNV/udpzivpn/main/ip2"
@@ -666,70 +666,59 @@ if [ -z "$versisc" ]; then
 versisc="UNKNOWN"
 fi
 
-# ── Info Panel ──────────────────────────────────────────────
-local W=54  # inner width
-printf "${YELLOW}│${NC} ${LIGHT_BLUE}%-9s${NC}${BOLD_WHITE}%-18s${NC} ${LIGHT_BLUE}%-6s${NC}${BOLD_WHITE}%-15s${NC}${YELLOW}│${NC}\n" "OS    :" "$os_info" "ISP  :" "$isp_info"
-printf "${YELLOW}│${NC} ${LIGHT_BLUE}%-9s${NC}${BOLD_WHITE}%-18s${NC} ${LIGHT_BLUE}%-6s${NC}${BOLD_WHITE}%-15s${NC}${YELLOW}│${NC}\n" "IP    :" "$ip_info" "Host :" "$host_info"
-printf "${YELLOW}│${NC} ${LIGHT_BLUE}%-9s${NC}${BOLD_WHITE}%-18s${NC} ${LIGHT_BLUE}%-6s${NC}${BOLD_WHITE}%-15s${NC}${YELLOW}│${NC}\n" "Client:" "$client_name" "EXP  :" "$license_exp"
-printf "${YELLOW}│${NC} ${LIGHT_BLUE}%-9s${NC}${BOLD_WHITE}%-18s${NC} ${LIGHT_BLUE}%-6s${NC}${BOLD_WHITE}%-15s${NC}${YELLOW}│${NC}\n" "Today :" "$bw_today" "Month:" "$bw_month"
-printf "${YELLOW}│${NC} ${LIGHT_BLUE}%-9s${NC}${BOLD_WHITE}%-18s${NC} ${LIGHT_BLUE}%-6s${NC}${BOLD_WHITE}%-15s${NC}${YELLOW}│${NC}\n" "RAM   :" "$mem_used/$mem_total ($mem_percent)" "Disk :" "$disk_used/$disk_total ($disk_percent)"
-printf "${YELLOW}│${NC} ${LIGHT_BLUE}%-9s${NC}${BOLD_WHITE}%-36s${NC}${YELLOW}│${NC}\n"                                                  "CPU   :" "$cpu_name ($cpu_cores cores)"
-printf "${YELLOW}│${NC} ${LIGHT_BLUE}%-9s${NC}${BOLD_WHITE}%-18s${NC} ${LIGHT_BLUE}%-6s${NC}${BOLD_WHITE}%-15s${NC}${YELLOW}│${NC}\n" "Uptime:" "$uptime_info" "Users:" "$total_users"
-printf "${YELLOW}│${NC} ${LIGHT_BLUE}%-9s${NC}${BOLD_WHITE}%-36s${NC}${YELLOW}│${NC}\n"                                                  "Version:" "$versisc"
+  local W='\033[1;37m'   # white bold
+  local D='\033[0;37m'   # dim white
+  local G='\033[1;32m'   # green
+  local N='\033[0m'
+
+  printf "  ${D}%-10s${N}${W}%-20s${N}  ${D}%-6s${N}${W}%s${N}\n"  "OS"      "$os_info"                          "ISP"   "$isp_info"
+  printf "  ${D}%-10s${N}${W}%-20s${N}  ${D}%-6s${N}${W}%s${N}\n"  "IP"      "$ip_info"                          "Host"  "$host_info"
+  printf "  ${D}%-10s${N}${W}%-20s${N}  ${D}%-6s${N}${W}%s${N}\n"  "Client"  "$client_name"                      "EXP"   "$license_exp"
+  printf "  ${D}%-10s${N}${W}%-20s${N}  ${D}%-6s${N}${W}%s${N}\n"  "Bw Today" "$bw_today"                        "Month" "$bw_month"
+  printf "  ${D}%-10s${N}${W}%-20s${N}  ${D}%-6s${N}${W}%s${N}\n"  "RAM"     "$mem_used/$mem_total ($mem_percent)" "Disk"  "$disk_used/$disk_total ($disk_percent)"
+  printf "  ${D}%-10s${N}${W}%s${N}\n"                              "CPU"     "$cpu_name ($cpu_cores cores)"
+  printf "  ${D}%-10s${N}${W}%-20s${N}  ${D}%-6s${N}${W}%s${N}\n"  "Uptime"  "$uptime_info"                      "Users" "$total_users"
+  printf "  ${D}%-10s${N}${W}%s${N}\n"                              "Version" "$versisc"
 }
 
 function _draw_service_status() {
-echo -e "${YELLOW}├──────────────────────────────────────────────────────┤${NC}"
+  local W='\033[1;37m'
+  local D='\033[0;37m'
+  local G='\033[1;32m'
+  local R='\033[0;31m'
+  local Y='\033[1;33m'
+  local N='\033[0m'
 
-# Fungsi bantu: cetak baris status rata kiri di dalam border
-_print_status_line() {
-    local label="$1"
-    local status_text="$2"
-    local status_color="$3"
-    # Format: │  Label: [color]Status[NC]  padding  │
-    local inner=54
-    local plain="${label} ${status_text}"
-    local plain_len=${#plain}
-    local pad=$(( inner - plain_len - 2 ))
-    printf "${YELLOW}│${NC}  ${CYAN}${label}${NC} ${status_color}${status_text}${NC}"
-    printf '%*s' "$pad" ''
-    printf "${YELLOW}│${NC}\n"
-}
+  echo -e "  ${D}────────────────────────────────────${N}"
 
-local services=("zivpn.service" "zivpn-api.service")
-local names=("ZiVPN        :" "ZiVPN API    :")
+  local services=("zivpn.service" "zivpn-api.service")
+  local labels=("ZiVPN" "API")
 
-for i in "${!services[@]}"; do
-    local service_status
-    service_status=$(systemctl is-active "${services[$i]}" 2>/dev/null || echo "unknown")
-    local status_text status_color
-    case "$service_status" in
-        active)       status_text="● Running";   status_color="${LIGHT_GREEN}" ;;
-        inactive)     status_text="○ Stopped";   status_color="${RED}" ;;
-        failed)       status_text="✗ Error";     status_color="${RED}" ;;
-        activating)   status_text="◌ Starting…"; status_color="${YELLOW}" ;;
-        deactivating) status_text="◌ Stopping…"; status_color="${YELLOW}" ;;
-        *)            status_text="? Unknown";   status_color="${RED}" ;;
+  for i in "${!services[@]}"; do
+    local svc_status
+    svc_status=$(systemctl is-active "${services[$i]}" 2>/dev/null || echo "unknown")
+    local stxt scol
+    case "$svc_status" in
+      active)       stxt="● Running";   scol="$G" ;;
+      inactive)     stxt="○ Stopped";   scol="$R" ;;
+      failed)       stxt="✗ Error";     scol="$R" ;;
+      activating)   stxt="◌ Starting…"; scol="$Y" ;;
+      deactivating) stxt="◌ Stopping…"; scol="$Y" ;;
+      *)            stxt="? Unknown";   scol="$R" ;;
     esac
-    _print_status_line "${names[$i]}" "$status_text" "$status_color"
-done
+    printf "  ${D}%-12s${N}  ${scol}%s${N}\n" "${labels[$i]}" "$stxt"
+  done
 
-# NAT status
-local rule_ok="no"
-if iptables -t nat -S PREROUTING 2>/dev/null | grep -qE "6000:19999|:5667"; then
-    rule_ok="yes"
-fi
-local rule_text rule_color
-if [ "$rule_ok" = "yes" ]; then
-    rule_text="● Active"
-    rule_color="${LIGHT_GREEN}"
-else
-    rule_text="○ Not Found"
-    rule_color="${RED}"
-fi
-_print_status_line "NAT ZiVPN    :" "$rule_text" "$rule_color"
+  # NAT / Service ZI
+  local rule_ok="no"
+  iptables -t nat -S PREROUTING 2>/dev/null | grep -qE "6000:19999|:5667" && rule_ok="yes"
+  local rtxt rcol
+  if [ "$rule_ok" = "yes" ]; then rtxt="● Active";    rcol="$G"
+  else                             rtxt="○ Not Found"; rcol="$R"
+  fi
+  printf "  ${D}%-12s${N}  ${rcol}%s${N}\n" "Service ZI" "$rtxt"
 
-echo -e "${YELLOW}├──────────────────────────────────────────────────────┤${NC}"
+  echo -e "  ${D}────────────────────────────────────${N}"
 }
 
 function setup_auto_backup() {
@@ -860,43 +849,49 @@ show_expired_message_and_exit
 fi
 clear
 
-# ── Header (tanpa figlet) ────────────────────────────────────
-echo -e "${YELLOW}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${YELLOW}║${NC}  ${BOLD_CYAN}  ███████╗██╗██╗   ██╗██████╗ ███╗   ██╗  ${NC}          ${YELLOW}║${NC}"
-echo -e "${YELLOW}║${NC}  ${BOLD_CYAN}  ╚══███╔╝██║██║   ██║██╔══██╗████╗  ██║  ${NC}          ${YELLOW}║${NC}"
-echo -e "${YELLOW}║${NC}  ${BOLD_CYAN}    ███╔╝ ██║██║   ██║██████╔╝██╔██╗ ██║  ${NC}          ${YELLOW}║${NC}"
-echo -e "${YELLOW}║${NC}  ${BOLD_CYAN}   ███╔╝  ██║╚██╗ ██╔╝██╔═══╝ ██║╚██╗██║  ${NC}         ${YELLOW}║${NC}"
-echo -e "${YELLOW}║${NC}  ${BOLD_CYAN}  ███████╗██║ ╚████╔╝ ██║     ██║ ╚████║  ${NC}          ${YELLOW}║${NC}"
-echo -e "${YELLOW}║${NC}  ${BOLD_CYAN}  ╚══════╝╚═╝  ╚═══╝  ╚═╝     ╚═╝  ╚═══╝  ${NC}         ${YELLOW}║${NC}"
-echo -e "${YELLOW}║${NC}${PURPLE}          ──  PT ZIVPN INDONESIA  ──${NC}                   ${YELLOW}║${NC}"
-echo -e "${YELLOW}╠══════════════════════════════════════════════════════╣${NC}"
+  local W='\033[1;37m'
+  local D='\033[0;37m'
+  local G='\033[1;32m'
+  local R='\033[0;31m'
+  local N='\033[0m'
 
-# ── Info panel ──────────────────────────────────────────────
-_draw_info_panel
+  # ── Header ────────────────────────────────────────────────
+  echo -e "${W}"
+  echo -e "  ███████╗██╗██╗   ██╗██████╗ ███╗   ██╗"
+  echo -e "     ███╔╝██║██║   ██║██╔══██╗████╗  ██║"
+  echo -e "    ███╔╝ ██║██║   ██║██████╔╝██╔██╗ ██║"
+  echo -e "   ███╔╝  ██║╚██╗ ██╔╝██╔═══╝ ██║╚██╗██║"
+  echo -e "  ███████╗██║ ╚████╔╝ ██║     ██║ ╚████║"
+  echo -e "  ╚══════╝╚═╝  ╚═══╝  ╚═╝     ╚═╝  ╚═══╝"
+  echo -e "${D}  ──────────  PT ZIVPN INDONESIA  ──────────${N}"
+  echo ""
 
-# ── Service status ──────────────────────────────────────────
-_draw_service_status
+  # ── Info panel ──────────────────────────────────────────
+  _draw_info_panel
 
-# ── Menu items ──────────────────────────────────────────────
-echo -e "${YELLOW}│${NC}                                                      ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}   ${LIGHT_BLUE}1)${NC}  ${BOLD_WHITE}Create Account${NC}                                ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}   ${LIGHT_BLUE}2)${NC}  ${BOLD_WHITE}Renew Account${NC}                                 ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}   ${LIGHT_BLUE}3)${NC}  ${BOLD_WHITE}Delete Account${NC}                                ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}   ${LIGHT_BLUE}4)${NC}  ${BOLD_WHITE}Change Domain${NC}                                 ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}   ${LIGHT_BLUE}5)${NC}  ${BOLD_WHITE}List Accounts${NC}                                 ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}   ${LIGHT_BLUE}6)${NC}  ${BOLD_WHITE}Backup / Restore${NC}                              ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}   ${LIGHT_BLUE}7)${NC}  ${BOLD_WHITE}Generate API Auth Key${NC}                         ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}   ${LIGHT_BLUE}8)${NC}  ${BOLD_WHITE}View API Auth Key${NC}                             ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}   ${LIGHT_BLUE}9)${NC}  ${BOLD_WHITE}Restart Service${NC}                               ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}  ${LIGHT_BLUE}10)${NC}  ${BOLD_WHITE}Update Script Version${NC}                         ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}  ${LIGHT_BLUE}11)${NC}  ${BOLD_WHITE}Update License Expiry${NC}                         ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}  ${LIGHT_BLUE}12)${NC}  ${BOLD_WHITE}Speedtest Server${NC}                              ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}  ${LIGHT_BLUE}13)${NC}  ${BOLD_WHITE}Fix Error ZIVPN${NC}                               ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}  ${LIGHT_BLUE}14)${NC}  ${BOLD_WHITE}Set Auto Reboot${NC}                               ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}   ${LIGHT_BLUE}0)${NC}  ${RED}Exit${NC}                                          ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${NC}                                                      ${YELLOW}│${NC}"
-echo -e "${YELLOW}╚══════════════════════════════════════════════════════╝${NC}"
-read -p " Enter your choice [0-14]: " choice
+  # ── Service status ────────────────────────────────────────
+  _draw_service_status
+
+  # ── Menu ──────────────────────────────────────────────────
+  echo -e "  ${D}────────────────────────────────────${N}"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "1)"   "Create Account"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "2)"   "Renew Account"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "3)"   "Delete Account"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "4)"   "Change Domain"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "5)"   "List Accounts"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "6)"   "Backup / Restore"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "7)"   "Generate API Auth Key"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "8)"   "View API Auth Key"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "9)"   "Restart Service"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "10)"  "Update Script Version"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "11)"  "Update License Expiry"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "12)"  "Speedtest Server"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "13)"  "Fix Error ZIVPN"
+  printf "  ${D}%3s${N}  ${W}%s${N}\n"  "14)"  "Set Auto Reboot"
+  printf "  ${D}%3s${N}  ${R}%s${N}\n"  "0)"   "Exit"
+  echo -e "  ${D}────────────────────────────────────${N}"
+  echo ""
+  read -p $'\033[0;37m  Pilihan \033[0m\033[1;37m[0-14]\033[0m\033[0;37m: \033[0m' choice
 case $choice in
 1) create_account ;;
 2) renew_account ;;
