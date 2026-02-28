@@ -671,19 +671,17 @@ fi
   local C='\033[0;36m'
   local N='\033[0m'
 
-  printf "${C}│${W} %-10s ${C}:${W} %-31s${C}│${N}\n"   "OS"      "${os_info}"
-  printf "${C}│${W} %-10s ${C}:${W} %-31s${C}│${N}\n"   "IP"      "${ip_info}"
-  printf "${C}│${W} %-10s ${C}:${W} %-31s${C}│${N}\n"   "Host"    "${host_info}"
-  printf "${C}│${W} %-10s ${C}:${G} %-31s${C}│${N}\n"   "Client"  "${client_name}"
-  printf "${C}│${W} %-10s ${C}:${G} %-31s${C}│${N}\n"   "EXP"     "${license_exp}"
-  printf "${C}│${W} %-10s ${C}:${W} %-31s${C}│${N}\n"   "RAM"     "${mem_used} / ${mem_total}"
-  printf "${C}│${W} %-10s ${C}:${W} %-31s${C}│${N}\n"   "CPU"     "${cpu_name} (${cpu_cores} cores)"
-  printf "${C}│${W} %-10s ${C}:${W} %-31s${C}│${N}\n"   "Disk"    "${disk_used} / ${disk_total} (${disk_percent})"
-  printf "${C}│${W} %-10s ${C}:${W} %-20s ${W}Users${C}:${G}%-5s${C}│${N}\n" \
-         "Uptime" "${uptime_info}" "${total_users}"
-  printf "${C}│${W} %-10s ${C}:${G} %-14s ${W}Month${C}:${G}%-6s${C}│${N}\n" \
-         "BW Today" "${bw_today}" "${bw_month}"
-  printf "${C}│${W} %-10s ${C}:${G} %-31s${C}│${N}\n"   "Version" "${versisc}"
+  printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "OS"      "${os_info}"
+  printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "IP"      "${ip_info}"
+  printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "Host"    "${host_info}"
+  printf "${C}│${W} %-10s ${C}:${G} %s${N}\n"   "Client"  "${client_name}"
+  printf "${C}│${W} %-10s ${C}:${G} %s${N}\n"   "EXP"     "${license_exp}"
+  printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "RAM"     "${mem_used} / ${mem_total}"
+  printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "CPU"     "${cpu_name} (${cpu_cores} cores)"
+  printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "Disk"    "${disk_used} / ${disk_total} (${disk_percent})"
+  printf "${C}│${W} %-10s ${C}:${W} %-20s  ${W}Users ${C}:${G} %s${N}\n"  "Uptime"   "${uptime_info}" "${total_users}"
+  printf "${C}│${W} %-10s ${C}:${G} %-14s  ${W}Month ${C}:${G} %s${N}\n"  "BW Today" "${bw_today}"    "${bw_month}"
+  printf "${C}│${W} %-10s ${C}:${G} %s${N}\n"   "Version" "${versisc}"
 }
 
 function _draw_service_status() {
@@ -724,7 +722,7 @@ function _draw_service_status() {
   else                             st3="OFF"; sc3="$R"
   fi
 
-  printf "${C}│${W} ZiVPN ${C}:${sc1}%-3s${W}  API ${C}:${sc2}%-3s${W}  Service ZI ${C}:${sc3}%-3s${C}  │${N}\n" \
+  printf "${C}│${W} ZiVPN ${C}:${sc1}%-3s${W}  API ${C}:${sc2}%-3s${W}  Service ZI ${C}:${sc3}%s${N}\n" \
          "$st1" "$st2" "$st3"
 }
 
@@ -862,7 +860,6 @@ clear
   local C='\033[0;36m'
   local N='\033[0m'
 
-  # ══ BOX ═══════════════════════════════════════════════════
   echo -e "${C}┌────────────────────────────────────────────┐"
   echo -e "${C}│${W}        ⚡  Menu Panel ZiVPN  ⚡          ${C}│"
   echo -e "${C}├────────────────────────────────────────────"
@@ -879,16 +876,16 @@ clear
   echo -e "${C}├────────────────────────────────────────────"
   printf  "${C}│${W} API Key  ${C}:${G} %s${N}\n" "$_ak"
 
-  # ══ Menu 2 kolom ══════════════════════════════
-  echo -e "${C}├────────────────────┬───────────────────────"
-  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "1"  "Buat Akun"      "8"  "Lihat API Key"
-  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "2"  "Perpanjang"     "9"  "Restart"
-  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "3"  "Hapus Akun"     "10" "Update Script"
-  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "4"  "Ganti Domain"   "11" "Update Lisensi"
-  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "5"  "Daftar Akun"    "12" "Speedtest"
-  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "6"  "Backup/Restore" "13" "Perbaiki Error"
-  printf  "${C}│${W} %2s. %-16s ${C}│${W} %2s. %s${N}\n"  "7"  "Buat API Key"   "14" "Auto Reboot"
-  echo -e "${C}├────────────────────┴───────────────────────"
+  # ══ Menu 2 kolom (tanpa garis tengah) ═════════
+  echo -e "${C}├────────────────────────────────────────────"
+  printf  "${C}│${W}  %2s. %-16s    %2s. %s${N}\n"  "1"  "Buat Akun"       "8"  "Lihat API Key"
+  printf  "${C}│${W}  %2s. %-16s    %2s. %s${N}\n"  "2"  "Perpanjang"      "9"  "Restart"
+  printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "3"  "Hapus Akun"      "10" "Update Script"
+  printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "4"  "Ganti Domain"    "11" "Update Lisensi"
+  printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "5"  "Daftar Akun"     "12" "Speedtest"
+  printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "6"  "Backup/Restore"  "13" "Perbaiki Error"
+  printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "7"  "Buat API Key"    "14" "Auto Reboot"
+  echo -e "${C}├────────────────────────────────────────────"
   printf  "${C}│${W}  x) Keluar${N}\n"
   echo -e "${C}└────────────────────────────────────────────┘${N}"
   echo ""
