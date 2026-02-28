@@ -1,5 +1,4 @@
 #!/bin/bash
-
 YELLOW='\033[1;37m'
 RED='\033[0;31m'
 LIGHT_BLUE='\033[0;37m'
@@ -180,27 +179,19 @@ host=$(cat /etc/zivpn/ip.txt)
 else
 host=$CERT_CN
 fi
-clear
 echo "Success:"
-echo "CREATE AKUN ZIVPN"
-echo "┌────────────────────────┐"
-echo "│ Host   : $host"
-echo "│ IP     : $ip"
-echo "│ ISP    : $isp"
-echo "│ Pass   : $password"
-echo "│ Expire : $EXPIRE_FORMATTED"
-echo "└────────────────────────┘"
-echo "Terima kasih telah menggunakan layanan kami"
+echo "DATA:host=$host"
+echo "DATA:ip=$ip"
+echo "DATA:isp=$isp"
+echo "DATA:pass=$password"
+echo "DATA:expire=$EXPIRE_FORMATTED"
 local message=$(cat <<EOF
 CREATE AKUN ZIVPN
-┌────────────────────────┐
-│ Host   : $host
-│ IP     : $ip
-│ ISP    : $isp
-│ Pass   : $password
-│ Expire : $EXPIRE_FORMATTED
-└────────────────────────┘
-Terima kasih telah menggunakan layanan kami
+Host   : $host
+IP     : $ip
+ISP    : $isp
+Pass   : $password
+Expire : $EXPIRE_FORMATTED
 EOF
 )
 send_telegram_notification "$message"
@@ -325,25 +316,19 @@ host=$CERT_CN
 fi
 clear
 echo "Success:"
-echo "TRIAL AKUN ZIVPN"
-echo "┌────────────────────────┐"
-echo "│ Host   : $host"
-echo "│ IP     : $ip"
-echo "│ ISP    : $isp"
-echo "│ Pass   : $password"
-echo "│ Expire : $EXPIRE_FORMATTED"
-echo "└────────────────────────┘"
-echo "Terima kasih telah menggunakan layanan kami"
+echo "Success:"
+echo "DATA:host=$host"
+echo "DATA:ip=$ip"
+echo "DATA:isp=$isp"
+echo "DATA:pass=$password"
+echo "DATA:expire=$EXPIRE_FORMATTED"
 local message=$(cat <<EOF
 TRIAL AKUN ZIVPN
-┌────────────────────────┐
-│ Host   : $host
-│ IP     : $ip
-│ ISP    : $isp
-│ Pass   : $password
-│ Expire : $EXPIRE_FORMATTED
-└────────────────────────┘
-Terima kasih telah mencoba layanan kami
+Host   : $host
+IP     : $ip
+ISP    : $isp
+Pass   : $password
+Expire : $EXPIRE_FORMATTED
 EOF
 )
 send_telegram_notification "$message"
@@ -428,27 +413,19 @@ host=$(cat /etc/zivpn/ip.txt)
 else
 host=$CERT_CN
 fi
-clear
 echo "Success:"
-echo "RENEW AKUN ZIVPN"
-echo "┌────────────────────────┐"
-echo "│ Host   : $host"
-echo "│ IP     : $ip"
-echo "│ ISP    : $isp"
-echo "│ Pass   : $password"
-echo "│ Expire : $new_expiry_formatted"
-echo "└────────────────────────┘"
-echo "Terima kasih telah menggunakan layanan kami"
+echo "DATA:host=$host"
+echo "DATA:ip=$ip"
+echo "DATA:isp=$isp"
+echo "DATA:pass=$password"
+echo "DATA:expire=$new_expiry_formatted"
 local message=$(cat <<EOF
 RENEW AKUN ZIVPN
-┌────────────────────────┐
-│ Host   : $host
-│ IP     : $ip
-│ ISP    : $isp
-│ Pass   : $password
-│ Expire : $new_expiry_formatted
-└────────────────────────┘
-Terima kasih telah menggunakan layanan kami
+Host   : $host
+IP     : $ip
+ISP    : $isp
+Pass   : $password
+Expire : $new_expiry_formatted
 EOF
 )
 send_telegram_notification "$message"
@@ -515,25 +492,19 @@ host=$CERT_CN
 fi
 clear
 echo "Success:"
-echo "DELETE AKUN ZIVPN"
-echo "┌────────────────────────┐"
-echo "│ Host   : $host"
-echo "│ IP     : $ip"
-echo "│ ISP    : $isp"
-echo "│ Pass   : $password"
-echo "│ Status : Deleted"
-echo "└────────────────────────┘"
-echo "Terima kasih telah menggunakan layanan kami"
+echo "Success:"
+echo "DATA:host=$host"
+echo "DATA:ip=$ip"
+echo "DATA:isp=$isp"
+echo "DATA:pass=$password"
+echo "DATA:status=Deleted"
 local message=$(cat <<EOF
 DELETE AKUN ZIVPN
-┌────────────────────────┐
-│ Host   : $host
-│ IP     : $ip
-│ ISP    : $isp
-│ Pass   : $password
-│ Status : Deleted
-└────────────────────────┘
-Terima kasih telah menggunakan layanan kami
+Host   : $host
+IP     : $ip
+ISP    : $isp
+Pass   : $password
+Status : Deleted
 EOF
 )
 send_telegram_notification "$message"
@@ -1095,10 +1066,27 @@ if (error) {
 const errorMessage = stderr || stdout || 'An internal server error occurred.';
 return res.status(500).json({ status: 'error', message: errorMessage.trim() });
 }
-if (stdout.toLowerCase().includes('success')) {
-res.json({ status: 'success', message: stdout.trim() });
+const output = stdout.trim();
+if (output.toLowerCase().includes('success')) {
+const data = {};
+output.split('\n').forEach(line => {
+if (line.startsWith('DATA:')) {
+const part = line.slice(5);
+const idx = part.indexOf('=');
+if (idx !== -1) {
+const key = part.slice(0, idx).trim();
+const value = part.slice(idx + 1).trim();
+data[key] = value;
+}
+}
+});
+if (Object.keys(data).length > 0) {
+res.json({ status: 'success', data });
 } else {
-res.status(400).json({ status: 'error', message: stdout.trim() });
+res.json({ status: 'success', message: output });
+}
+} else {
+res.status(400).json({ status: 'error', message: output });
 }
 });
 };
