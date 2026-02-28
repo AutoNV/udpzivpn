@@ -868,30 +868,42 @@ clear
   # ── Service status ────────────────────────────────────────
   _draw_service_status
 
+  # ── API Auth Key ──────────────────────────────────────────
+  local _kf="/etc/zivpn/api_auth.key"
+  local _ak
+  if [ -f "$_kf" ]; then
+    _ak=$(cat "$_kf")
+  else
+    _ak="(not set)"
+  fi
+
   # ── Menu ──────────────────────────────────────────────────
-  echo -e "${W}────────────────────────────────────────────"
-  echo -e "| Menu |"
-  echo -e "────────────────────────────────────────────${N}"
+  local C='\033[0;36m'   # cyan untuk nomor
+  local D='\033[0;37m'   # dim untuk teks item kanan
+  echo -e "${W}┌─────────────────────────────────────────────────┐"
+  echo -e "│               ⚡  ZIVPN  MENU  ⚡               │"
+  echo -e "├────────────────────────┬────────────────────────┤"
+  printf  "│ ${C}%2s${W}. %-20s ${W}│ ${C}%2s${W}. %-20s${W}│\n"  \
+          "1"  "Create Account"     "8"  "View API Auth Key"
+  printf  "│ ${C}%2s${W}. %-20s ${W}│ ${C}%2s${W}. %-20s${W}│\n"  \
+          "2"  "Renew Account"      "9"  "Restart Service"
+  printf  "│ ${C}%2s${W}. %-20s ${W}│ ${C}%2s${W}. %-20s${W}│\n"  \
+          "3"  "Delete Account"     "10" "Update Script"
+  printf  "│ ${C}%2s${W}. %-20s ${W}│ ${C}%2s${W}. %-20s${W}│\n"  \
+          "4"  "Change Domain"      "11" "Update License"
+  printf  "│ ${C}%2s${W}. %-20s ${W}│ ${C}%2s${W}. %-20s${W}│\n"  \
+          "5"  "List Accounts"      "12" "Speedtest"
+  printf  "│ ${C}%2s${W}. %-20s ${W}│ ${C}%2s${W}. %-20s${W}│\n"  \
+          "6"  "Backup / Restore"   "13" "Fix Error ZIVPN"
+  printf  "│ ${C}%2s${W}. %-20s ${W}│ ${C}%2s${W}. %-20s${W}│\n"  \
+          "7"  "Generate API Key"   "14" "Set Auto Reboot"
+  echo -e "├────────────────────────┴────────────────────────┤"
+  printf  "│  ${W}x) Exit                                        │\n"
+  echo -e "├─────────────────────────────────────────────────┤"
+  printf  "│  ${W}API Key : ${G}%-36s${W}│\n"  "$_ak"
+  echo -e "└─────────────────────────────────────────────────┘${N}"
   echo ""
-  printf "${W}%4s.  %-s${N}\n"  "1"   "Create Account"
-  printf "${W}%4s.  %-s${N}\n"  "2"   "Renew Account"
-  printf "${W}%4s.  %-s${N}\n"  "3"   "Delete Account"
-  printf "${W}%4s.  %-s${N}\n"  "4"   "Change Domain"
-  printf "${W}%4s.  %-s${N}\n"  "5"   "List Accounts"
-  printf "${W}%4s.  %-s${N}\n"  "6"   "Backup / Restore"
-  printf "${W}%4s.  %-s${N}\n"  "7"   "Generate API Auth Key"
-  printf "${W}%4s.  %-s${N}\n"  "8"   "View API Auth Key"
-  printf "${W}%4s.  %-s${N}\n"  "9"   "Restart Service"
-  printf "${W}%4s.  %-s${N}\n"  "10"  "Update Script Version"
-  printf "${W}%4s.  %-s${N}\n"  "11"  "Update License Expiry"
-  printf "${W}%4s.  %-s${N}\n"  "12"  "Speedtest Server"
-  printf "${W}%4s.  %-s${N}\n"  "13"  "Fix Error ZIVPN"
-  printf "${W}%4s.  %-s${N}\n"  "14"  "Set Auto Reboot"
-  echo ""
-  printf "${W}%4s)  %-s${N}\n"  "x"   "Exit Menu"
-  echo ""
-  echo -e "${W}────────────────────────────────────────────${N}"
-  read -p "Input Option (1-14 or x): " choice
+  read -p " Input Option (1-14 or x): " choice
   # remap x -> 0
   [[ "$choice" == "x" || "$choice" == "X" ]] && choice=0
 case $choice in
