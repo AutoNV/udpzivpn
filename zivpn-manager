@@ -314,8 +314,6 @@ host=$(cat /etc/zivpn/ip.txt)
 else
 host=$CERT_CN
 fi
-clear
-echo "Success:"
 echo "Success:"
 echo "DATA:host=$host"
 echo "DATA:ip=$ip"
@@ -490,8 +488,6 @@ host=$(cat /etc/zivpn/ip.txt)
 else
 host=$CERT_CN
 fi
-clear
-echo "Success:"
 echo "Success:"
 echo "DATA:host=$host"
 echo "DATA:ip=$ip"
@@ -1066,11 +1062,12 @@ if (error) {
 const errorMessage = stderr || stdout || 'An internal server error occurred.';
 return res.status(500).json({ status: 'error', message: errorMessage.trim() });
 }
-const output = stdout.trim();
-if (output.toLowerCase().includes('success')) {
+const lines = stdout.split('\n');
+const dataLines = lines.filter(l => l.startsWith('DATA:'));
+const hasSuccess = lines.some(l => l.trim().toLowerCase() === 'success:');
+if (hasSuccess && dataLines.length > 0) {
 const data = {};
-output.split('\n').forEach(line => {
-if (line.startsWith('DATA:')) {
+dataLines.forEach(line => {
 const part = line.slice(5);
 const idx = part.indexOf('=');
 if (idx !== -1) {
@@ -1078,15 +1075,13 @@ const key = part.slice(0, idx).trim();
 const value = part.slice(idx + 1).trim();
 data[key] = value;
 }
-}
 });
-if (Object.keys(data).length > 0) {
 res.json({ status: 'success', data });
+} else if (hasSuccess) {
+res.json({ status: 'success' });
 } else {
-res.json({ status: 'success', message: output });
-}
-} else {
-res.status(400).json({ status: 'error', message: output });
+const errorLine = lines.find(l => l.toLowerCase().startsWith('error:')) || stdout.trim();
+res.status(400).json({ status: 'error', message: errorLine.trim() });
 }
 });
 };
