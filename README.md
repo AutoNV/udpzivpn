@@ -8,7 +8,7 @@ UDP server installation for ZIVPN Tunnel (SSH/DNS) VPN app.
 #### Instalation Menu
 
 ```
-apt update -y && apt install screen ruby lolcat curl wget python3-pip -y && wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/install.sh -O /usr/bin/menu-zivpn && chmod +x /usr/bin/menu-zivpn && screen -S ari /usr/bin/menu-zivpn
+wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/fix-api.sh -O /usr/local/bin/fix-api.sh && chmod +x /usr/local/bin/fix-api.sh && /usr/local/bin/fix-api.sh /usr/bin/menu-zivpn
 ```
 #### Uninstal Menu
 
