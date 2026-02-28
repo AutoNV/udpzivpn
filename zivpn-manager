@@ -241,6 +241,132 @@ fi
 read -p "Tekan Enter untuk kembali ke menu..."
 }
 
+function _auto_fix_port() {
+  clear
+  local W='\033[1;37m'
+  local G='\033[1;32m'
+  local R='\033[0;31m'
+  local C='\033[0;36m'
+  local Y='\033[1;33m'
+  local N='\033[0m'
+
+  echo -e "${C}┌────────────────────────────────────────────┐"
+  echo -e "${C}│${W}        🔧  Auto Fix Port API             ${C}│"
+  echo -e "${C}└────────────────────────────────────────────┘${N}"
+  echo ""
+
+  local API_JS="/etc/zivpn/api/api.js"
+  local CURRENT_PORT=""
+
+  # Baca port saat ini
+  if [ -f "$API_JS" ]; then
+    CURRENT_PORT=$(grep -oP 'const PORT = \K[0-9]+' "$API_JS" 2>/dev/null)
+  fi
+
+  if [ -z "$CURRENT_PORT" ]; then
+    _err "File api.js tidak ditemukan atau PORT tidak bisa dibaca!"
+    echo -e "${Y}  Path: $API_JS${N}"
+    echo ""
+    read -p " Tekan Enter untuk kembali..." && /usr/local/bin/zivpn-manager
+    return
+  fi
+
+  echo -e "${C}  Port API saat ini : ${Y}${CURRENT_PORT}${N}"
+  echo ""
+  echo -e "${W}  Pilih port tujuan:${N}"
+  echo -e "${C}  ──────────────────────────────────────────${N}"
+  printf  "${C}  %2s. %-10s  ${W}%s${N}\n"  "1"  "Port 443"   "(HTTPS - paling jarang diblokir)"
+  printf  "${C}  %2s. %-10s  ${W}%s${N}\n"  "2"  "Port 8443"  "(HTTPS alt - aman di kebanyakan hosting)"
+  printf  "${C}  %2s. %-10s  ${W}%s${N}\n"  "3"  "Port 2053"  "(Cloudflare friendly)"
+  printf  "${C}  %2s. %-10s  ${W}%s${N}\n"  "4"  "Port 2083"  "(Cloudflare friendly)"
+  printf  "${C}  %2s. %-10s  ${W}%s${N}\n"  "5"  "Port 2087"  "(Cloudflare friendly)"
+  printf  "${C}  %2s. %-10s  ${W}%s${N}\n"  "6"  "Custom"     "(Masukkan port sendiri)"
+  echo -e "${C}  ──────────────────────────────────────────${N}"
+  echo ""
+  read -p "  Pilih (1-6): " port_choice
+
+  local NEW_PORT=""
+  case $port_choice in
+    1) NEW_PORT=443  ;;
+    2) NEW_PORT=8443 ;;
+    3) NEW_PORT=2053 ;;
+    4) NEW_PORT=2083 ;;
+    5) NEW_PORT=2087 ;;
+    6)
+      read -p "  Masukkan port (1-65535): " NEW_PORT
+      if ! [[ "$NEW_PORT" =~ ^[0-9]+$ ]] || [ "$NEW_PORT" -lt 1 ] || [ "$NEW_PORT" -gt 65535 ]; then
+        _err "Port tidak valid!"
+        read -p " Tekan Enter untuk kembali..." && /usr/local/bin/zivpn-manager
+        return
+      fi
+      ;;
+    *)
+      _warn "Pilihan tidak valid, kembali ke menu..."
+      sleep 1
+      /usr/local/bin/zivpn-manager
+      return
+      ;;
+  esac
+
+  if [ "$NEW_PORT" == "$CURRENT_PORT" ]; then
+    _warn "Port sudah menggunakan ${NEW_PORT}, tidak perlu diubah."
+    read -p " Tekan Enter untuk kembali..." && /usr/local/bin/zivpn-manager
+    return
+  fi
+
+  echo ""
+  echo -e "${Y}  ⚡ Mengganti port ${CURRENT_PORT} → ${NEW_PORT} ...${N}"
+  echo ""
+
+  # 1. Update api.js
+  _progress "Update api.js"
+  sed -i "s/const PORT = ${CURRENT_PORT}/const PORT = ${NEW_PORT}/" "$API_JS"
+  _ok "api.js diperbarui (PORT=${NEW_PORT})"
+
+  # 2. Update iptables - hapus rule lama, tambah rule baru
+  _progress "Update firewall iptables"
+  iptables -D INPUT -p tcp --dport "${CURRENT_PORT}" -j ACCEPT 2>/dev/null
+  iptables -I INPUT -p tcp --dport "${NEW_PORT}" -j ACCEPT
+  _ok "Firewall: port ${CURRENT_PORT} ditutup, port ${NEW_PORT} dibuka"
+
+  # 3. Simpan iptables (agar persist setelah reboot)
+  if command -v iptables-save &>/dev/null; then
+    iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+  fi
+
+  # 4. Restart API service
+  _progress "Restart zivpn-api.service"
+  systemctl restart zivpn-api.service
+  sleep 2
+  local svc_status
+  svc_status=$(systemctl is-active zivpn-api.service 2>/dev/null)
+  if [ "$svc_status" == "active" ]; then
+    _ok "Service berjalan normal"
+  else
+    _err "Service gagal restart! Cek: journalctl -u zivpn-api.service -n 20"
+  fi
+
+  # 5. Tampilkan info
+  local SERVER_IP
+  SERVER_IP=$(cat /etc/zivpn/ip.txt 2>/dev/null || hostname -I | awk '{print $1}')
+  local AUTH_KEY
+  AUTH_KEY=$(cat /etc/zivpn/api_auth.key 2>/dev/null || echo "N/A")
+
+  echo ""
+  echo -e "${C}┌────────────────────────────────────────────┐"
+  echo -e "${C}│${G}  ✅  Port API berhasil diganti!            ${C}│"
+  echo -e "${C}├────────────────────────────────────────────┤"
+  printf  "${C}│${W}  Port Lama  : ${R}%-28s${C}│\n" "${CURRENT_PORT}"
+  printf  "${C}│${W}  Port Baru  : ${G}%-28s${C}│\n" "${NEW_PORT}"
+  printf  "${C}│${W}  Test URL   : ${Y}http://${SERVER_IP}:${NEW_PORT}/create/zivpn${N}\n"
+  printf  "${C}│${W}  Auth Key   : ${G}%-28s${C}│\n" "${AUTH_KEY}"
+  echo -e "${C}└────────────────────────────────────────────┘${N}"
+  echo ""
+  echo -e "${Y}  ⚠  Jangan lupa update port di database panel (tabel zi_servers)!${N}"
+  echo ""
+  read -p " Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager
+}
+
 function _generate_api_key() {
 clear
 echo "─── Generate API Authentication Key ───"
@@ -881,11 +1007,12 @@ clear
   printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "5"  "Daftar Akun"     "12" "Speedtest"
   printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "6"  "Backup/Restore"  "13" "Perbaiki Error"
   printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "7"  "Buat API Key"    "14" "Auto Reboot"
+  printf  "${C}│${W}  %2s. %-16s${N}\n"              "15" "Auto Fix Port API"
   echo -e "${C}├────────────────────────────────────────────"
   printf  "${C}│${W}  x) Keluar${N}\n"
   echo -e "${C}└────────────────────────────────────────────┘${N}"
   echo ""
-  read -p " Pilih Menu (1-14 atau x): " choice
+  read -p " Pilih Menu (1-15 atau x): " choice
   # remap x -> 0
   [[ "$choice" == "x" || "$choice" == "X" ]] && choice=0
 case $choice in
@@ -903,6 +1030,7 @@ case $choice in
 12) wget https://raw.githubusercontent.com/arivpnstores/v4/main/Cdy/speedtest -O /usr/bin/speedtest && chmod +x /usr/bin/speedtest && yes | /usr/bin/speedtest && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
 13) wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/fix-zivpn.sh -O /usr/local/bin/fix-zivpn.sh && chmod +x /usr/local/bin/fix-zivpn.sh && /usr/local/bin/fix-zivpn.sh && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
 14) set_reboot_menu ;;
+15) _auto_fix_port ;;
 0) exit 0 ;;
 *) echo "Invalid option. Please try again." ;;
 esac
