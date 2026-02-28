@@ -39,13 +39,7 @@ _err()  { printf "  ${_R}✘  %s${NC}\n"  "$1"; }
 _sep()  { echo -e "${_C}--------------------------------------------${NC}"; }
 _hdr()  { _sep; echo -e "${_W}  $1${NC}"; _sep; }
 
-# ── Cloudflare Config ─────────────────────────────────────────
-CF_EMAIL="ayfa7756@gmail.com"
-CF_API_KEY="89df648f7990d6d807d6c9ed7dd265d9d4300"
-CF_API_TOKEN="beb2618f7705d1b38b2d580ae033a233"
-CF_BASE_DOMAIN="nexusdev.web.id"
-CF_ZONE_ID=""   # akan di-fetch otomatis
-
+# ── Config ────────────────────────────────────────────────────
 LICENSE_URL="https://raw.githubusercontent.com/AutoNV/udpzivpn/main/ip2"
 LICENSE_INFO_FILE="/etc/zivpn/.license_info"
 CONFIG_DIR="/etc/zivpn"
@@ -59,193 +53,172 @@ exit 1
 fi
 
 # ══════════════════════════════════════════════════════════════
-#  CLOUDFLARE FUNCTIONS
+#  ACME.SH SSL FUNCTIONS
 # ══════════════════════════════════════════════════════════════
 
-function cf_get_zone_id() {
-  local zone_id
-  zone_id=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=${CF_BASE_DOMAIN}" \
-    -H "X-Auth-Email: ${CF_EMAIL}" \
-    -H "X-Auth-Key: ${CF_API_KEY}" \
-    -H "Content-Type: application/json" | jq -r '.result[0].id' 2>/dev/null)
-  echo "$zone_id"
+function install_acme_sh() {
+  _progress "Install acme.sh"
+  mkdir -p /root/.acme.sh
+  curl -fsSL https://acme-install.netlify.app/acme.sh -o /root/.acme.sh/acme.sh 2>/dev/null
+  chmod +x /root/.acme.sh/acme.sh
+  # Set default CA ke Let's Encrypt
+  /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt >/dev/null 2>&1
+  _ok "acme.sh siap"
 }
 
-function cf_delete_existing_record() {
-  local zone_id="$1"
-  local subdomain="$2"
-  local fqdn="${subdomain}.${CF_BASE_DOMAIN}"
-  local record_ids
-  record_ids=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records?type=A&name=${fqdn}" \
-    -H "X-Auth-Email: ${CF_EMAIL}" \
-    -H "X-Auth-Key: ${CF_API_KEY}" \
-    -H "Content-Type: application/json" | jq -r '.result[].id' 2>/dev/null)
-  for rid in $record_ids; do
-    curl -s -X DELETE "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records/${rid}" \
-      -H "X-Auth-Email: ${CF_EMAIL}" \
-      -H "X-Auth-Key: ${CF_API_KEY}" \
-      -H "Content-Type: application/json" >/dev/null
-  done
-}
-
-function cf_create_a_record() {
-  local zone_id="$1"
-  local subdomain="$2"
-  local ip="$3"
-  local fqdn="${subdomain}.${CF_BASE_DOMAIN}"
-
-  # Hapus record lama dulu
-  cf_delete_existing_record "$zone_id" "$subdomain"
-
-  local result
-  result=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records" \
-    -H "X-Auth-Email: ${CF_EMAIL}" \
-    -H "X-Auth-Key: ${CF_API_KEY}" \
-    -H "Content-Type: application/json" \
-    --data "{
-      \"type\": \"A\",
-      \"name\": \"${fqdn}\",
-      \"content\": \"${ip}\",
-      \"ttl\": 120,
-      \"proxied\": false
-    }")
-  local success
-  success=$(echo "$result" | jq -r '.success' 2>/dev/null)
-  if [ "$success" = "true" ]; then
-    echo "ok"
-  else
-    local err_msg
-    err_msg=$(echo "$result" | jq -r '.errors[0].message' 2>/dev/null)
-    echo "error: $err_msg"
-  fi
-}
-
-function generate_random_subdomain() {
-  # Generate subdomain random 4 karakter huruf kecil + 4 angka
-  local rand_str
-  rand_str=$(LC_ALL=C tr -dc 'abcdefghijklmnopqrstuvwxyz' < /dev/urandom | head -c 4)
-  local rand_num
-  rand_num=$(shuf -i 1000-9999 -n 1)
-  echo "${rand_str}${rand_num}"
-}
-
-function setup_cloudflare_domain() {
-  _hdr "[ CF ] Cloudflare DNS Setup"
-
-  # Install dependency
-  apt install -y jq curl >/dev/null 2>&1
-
-  local server_ip
-  server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
-  if [ -z "$server_ip" ]; then
-    server_ip=$(curl -s https://api.ipify.org 2>/dev/null || curl -s https://ifconfig.me 2>/dev/null)
-  fi
-
-  if [ -z "$server_ip" ]; then
-    _err "Gagal mendapatkan IP server"
-    return 1
-  fi
-
-  _progress "Fetching Zone ID"
-  local zone_id
-  zone_id=$(cf_get_zone_id)
-  if [ -z "$zone_id" ] || [ "$zone_id" = "null" ]; then
-    _err "Gagal mendapatkan Zone ID untuk ${CF_BASE_DOMAIN}"
-    _warn "Pastikan API Key dan email Cloudflare sudah benar"
-    return 1
-  fi
-  CF_ZONE_ID="$zone_id"
-  _ok "Zone ID: ${zone_id}"
-
-  # Generate subdomain random
-  local subdomain
-  subdomain=$(generate_random_subdomain)
-  local full_domain="${subdomain}.${CF_BASE_DOMAIN}"
-
-  _progress "Creating DNS A Record"
-  local cf_result
-  cf_result=$(cf_create_a_record "$zone_id" "$subdomain" "$server_ip")
-
-  if [ "$cf_result" != "ok" ]; then
-    _err "Gagal membuat DNS record: $cf_result"
-    return 1
-  fi
-  _ok "DNS Record: ${full_domain} → ${server_ip}"
-
-  # Simpan domain config
-  mkdir -p "$CONFIG_DIR"
-  cat > "$DOMAIN_CONF" <<EOF
-DOMAIN=${full_domain}
-SUBDOMAIN=${subdomain}
-BASE_DOMAIN=${CF_BASE_DOMAIN}
-SERVER_IP=${server_ip}
-CF_ZONE_ID=${zone_id}
-SSL_ENABLED=true
-EOF
-
-  echo "$full_domain"
-}
-
-function setup_ssl_certbot() {
+function issue_ssl_acme() {
   local domain="$1"
 
-  _hdr "[ SSL ] Installing SSL Certificate"
+  _hdr "[ SSL ] Menerbitkan SSL via acme.sh"
 
-  # Install certbot
-  _progress "Installing certbot"
-  apt install -y certbot >/dev/null 2>&1
-  _ok "Certbot installed"
+  # Install acme.sh jika belum ada
+  if [ ! -f "/root/.acme.sh/acme.sh" ]; then
+    install_acme_sh
+  fi
 
-  # Tunggu DNS propagasi
-  _progress "Waiting DNS propagation (30s)"
-  sleep 30
-
-  # Coba resolve domain
-  local resolved_ip
-  for i in {1..10}; do
-    resolved_ip=$(dig +short "$domain" 2>/dev/null | head -1)
-    if [ -n "$resolved_ip" ]; then
-      break
-    fi
-    sleep 5
-  done
-
-  local server_ip
-  server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
-
-  # Stop layanan yang pakai port 80/443 sementara
+  # Stop layanan yang pakai port 80 sementara
   systemctl stop nginx 2>/dev/null || true
   systemctl stop apache2 2>/dev/null || true
+  sleep 1
 
-  _progress "Requesting SSL certificate"
-  certbot certonly --standalone \
+  _progress "Issue SSL certificate (standalone)"
+  /root/.acme.sh/acme.sh --issue \
     -d "$domain" \
-    --non-interactive \
-    --agree-tos \
-    --email "$CF_EMAIL" \
-    --http-01-port 80 \
-    >/var/log/zivpn_certbot.log 2>&1
+    --standalone \
+    --httpport 80 \
+    --force \
+    >/var/log/zivpn_acme.log 2>&1
 
   if [ $? -eq 0 ]; then
-    # Copy cert ke zivpn dir
-    cp "/etc/letsencrypt/live/${domain}/fullchain.pem" /etc/zivpn/zivpn.crt
-    cp "/etc/letsencrypt/live/${domain}/privkey.pem" /etc/zivpn/zivpn.key
-    chmod 600 /etc/zivpn/zivpn.key
-    _ok "SSL certificate installed for ${domain}"
+    _ok "SSL berhasil diterbitkan"
 
-    # Setup auto-renew
-    (crontab -l 2>/dev/null | grep -v "# zivpn-ssl-renew") | crontab -
-    (crontab -l 2>/dev/null; echo "0 3 * * 1 certbot renew --quiet --post-hook 'cp /etc/letsencrypt/live/${domain}/fullchain.pem /etc/zivpn/zivpn.crt && cp /etc/letsencrypt/live/${domain}/privkey.pem /etc/zivpn/zivpn.key && systemctl restart zivpn-api.service' # zivpn-ssl-renew") | crontab -
-    _ok "Auto-renew SSL configured"
+    # Install cert ke direktori zivpn
+    _progress "Install cert ke /etc/zivpn"
+    mkdir -p /etc/zivpn
+    /root/.acme.sh/acme.sh --install-cert \
+      -d "$domain" \
+      --cert-file    /etc/zivpn/zivpn.crt \
+      --key-file     /etc/zivpn/zivpn.key \
+      --fullchain-file /etc/zivpn/zivpn.crt \
+      --reloadcmd    "systemctl reload nginx 2>/dev/null || true" \
+      >/dev/null 2>&1
+    chmod 600 /etc/zivpn/zivpn.key
+    _ok "Cert diinstall ke /etc/zivpn"
+
+    # Setup auto-renew via cron
+    _progress "Setup auto-renew"
+    /root/.acme.sh/acme.sh --install-cronjob >/dev/null 2>&1
+    _ok "Auto-renew aktif"
     return 0
   else
-    _warn "Certbot gagal, mencoba metode DNS challenge..."
-    # Fallback: buat self-signed dengan domain
-    openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
+    _warn "acme.sh gagal, fallback ke self-signed cert..."
+    _warn "Cek log: /var/log/zivpn_acme.log"
+    # Buat self-signed sebagai fallback
+    openssl req -x509 -newkey rsa:4096 -days 365 -nodes \
       -subj "/C=US/ST=Jakarta/L=Jakarta/O=NexusDev/OU=VPN/CN=${domain}" \
-      -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" 2>/dev/null
-    _warn "SSL self-signed digunakan (certbot gagal, cek /var/log/zivpn_certbot.log)"
+      -keyout /etc/zivpn/zivpn.key \
+      -out /etc/zivpn/zivpn.crt 2>/dev/null
+    chmod 600 /etc/zivpn/zivpn.key
+    _warn "Self-signed cert digunakan"
     return 1
+  fi
+}
+
+function ask_domain_input() {
+  # Minta user input domain saat install pertama kali
+  local domain=""
+  echo ""
+  echo -e "${_C}════════════════════════════════════════════════${NC}"
+  echo -e "${_W}   🌐  Setup Domain & SSL                      ${NC}"
+  echo -e "${_C}════════════════════════════════════════════════${NC}"
+  echo ""
+  echo -e "${_Y}  Masukkan domain yang sudah diarahkan ke IP server ini.${NC}"
+  echo -e "${_Y}  Pastikan DNS A record sudah pointing ke: $(curl -s https://api.ipify.org 2>/dev/null)${NC}"
+  echo ""
+  while true; do
+    read -p "  Domain (contoh: vpn.example.com): " domain
+    domain=$(echo "$domain" | tr -d ' ' | tr '[:upper:]' '[:lower:]')
+    if [ -z "$domain" ]; then
+      echo -e "  ${_R}✘  Domain tidak boleh kosong.${NC}"
+      continue
+    fi
+    # Validasi format domain sederhana
+    if ! echo "$domain" | grep -qE '^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)+$'; then
+      echo -e "  ${_R}✘  Format domain tidak valid. Coba lagi.${NC}"
+      continue
+    fi
+    echo ""
+    echo -e "  ${_W}Domain yang dimasukkan: ${_G}${domain}${NC}"
+    read -p "  Sudah benar? (y/n): " confirm
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+      break
+    fi
+  done
+
+  # Simpan domain conf
+  local server_ip
+  server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null || curl -s https://api.ipify.org 2>/dev/null)
+  mkdir -p "$CONFIG_DIR"
+  printf 'DOMAIN=%s\nSERVER_IP=%s\nSSL_ENABLED=true\n' "$domain" "$server_ip" > "$DOMAIN_CONF"
+
+  echo "$domain"
+}
+
+
+function _write_nginx_config() {
+  # Tulis config nginx TANPA heredoc ekspansi variabel (pakai printf)
+  # agar tidak ada escape color ANSI yang bocor ke file config
+  local domain="$1"
+  local cfg="/etc/nginx/sites-available/zivpn-api"
+
+  # Hapus config lama dulu
+  rm -f "$cfg"
+
+  printf 'server {\n' >> "$cfg"
+  printf '    listen 80;\n' >> "$cfg"
+  printf '    server_name %s;\n' "$domain" >> "$cfg"
+  printf '    return 301 https://$host$request_uri;\n' >> "$cfg"
+  printf '}\n\n' >> "$cfg"
+  printf 'server {\n' >> "$cfg"
+  printf '    listen 443 ssl http2;\n' >> "$cfg"
+  printf '    server_name %s;\n' "$domain" >> "$cfg"
+  printf '\n' >> "$cfg"
+  printf '    ssl_certificate /etc/zivpn/zivpn.crt;\n' >> "$cfg"
+  printf '    ssl_certificate_key /etc/zivpn/zivpn.key;\n' >> "$cfg"
+  printf '    ssl_protocols TLSv1.2 TLSv1.3;\n' >> "$cfg"
+  printf '    ssl_ciphers HIGH:!aNULL:!MD5;\n' >> "$cfg"
+  printf '\n' >> "$cfg"
+  printf '    location / {\n' >> "$cfg"
+  printf '        proxy_pass http://127.0.0.1:5888;\n' >> "$cfg"
+  printf '        proxy_set_header Host $host;\n' >> "$cfg"
+  printf '        proxy_set_header X-Real-IP $remote_addr;\n' >> "$cfg"
+  printf '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n' >> "$cfg"
+  printf '        proxy_set_header X-Forwarded-Proto $scheme;\n' >> "$cfg"
+  printf '    }\n' >> "$cfg"
+  printf '}\n' >> "$cfg"
+}
+
+function _fix_ssl_key_mismatch() {
+  # Periksa apakah cert dan key cocok, jika tidak → regenerate pasangan baru
+  local domain="$1"
+  local cert_md5 key_md5
+
+  cert_md5=$(openssl x509 -noout -modulus -in /etc/zivpn/zivpn.crt 2>/dev/null | md5sum)
+  key_md5=$(openssl rsa -noout -modulus -in /etc/zivpn/zivpn.key 2>/dev/null | md5sum)
+
+  if [ "$cert_md5" != "$key_md5" ] || [ -z "$cert_md5" ]; then
+    _warn "SSL cert/key tidak cocok, regenerate self-signed..."
+    # Hapus dulu file lama
+    rm -f /etc/zivpn/zivpn.crt /etc/zivpn/zivpn.key
+    # Generate pasangan baru yang cocok
+    openssl req -x509 -newkey rsa:4096 -days 365 -nodes \
+      -subj "/C=US/ST=Jakarta/L=Jakarta/O=NexusDev/OU=VPN/CN=${domain}" \
+      -keyout /etc/zivpn/zivpn.key \
+      -out /etc/zivpn/zivpn.crt 2>/dev/null
+    chmod 600 /etc/zivpn/zivpn.key
+    _ok "SSL cert/key baru dibuat (matched)"
+  else
+    _ok "SSL cert/key cocok"
   fi
 }
 
@@ -255,45 +228,32 @@ function setup_nginx_ssl_proxy() {
   _progress "Installing nginx"
   apt install -y nginx >/dev/null 2>&1
 
-  # Config nginx sebagai HTTPS reverse proxy ke API port internal
-  cat > "/etc/nginx/sites-available/zivpn-api" <<EOF
-server {
-    listen 80;
-    server_name ${domain};
-    return 301 https://\$host\$request_uri;
-}
+  # Cek dan fix SSL key mismatch sebelum menulis config
+  _fix_ssl_key_mismatch "$domain"
 
-server {
-    listen 443 ssl http2;
-    server_name ${domain};
-
-    ssl_certificate /etc/zivpn/zivpn.crt;
-    ssl_certificate_key /etc/zivpn/zivpn.key;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-
-    location / {
-        proxy_pass http://127.0.0.1:5888;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
-EOF
+  # Tulis config nginx menggunakan printf (bukan heredoc) agar
+  # tidak ada karakter ANSI color yang bocor ke dalam config file
+  _write_nginx_config "$domain"
 
   ln -sf /etc/nginx/sites-available/zivpn-api /etc/nginx/sites-enabled/zivpn-api
   rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
 
-  nginx -t >/dev/null 2>&1 && systemctl restart nginx
-  systemctl enable nginx >/dev/null 2>&1
+  # Test config sebelum restart
+  local test_result
+  test_result=$(nginx -t 2>&1)
+  if echo "$test_result" | grep -q "syntax is ok"; then
+    systemctl restart nginx
+    systemctl enable nginx >/dev/null 2>&1
+    _ok "Nginx SSL proxy aktif → https://${domain}"
+  else
+    _err "Nginx config error:"
+    echo "$test_result" | grep "emerg\|error" | head -5
+  fi
 
   # Buka port 443 dan 80
-  iptables -I INPUT -p tcp --dport 443 -j ACCEPT
-  iptables -I INPUT -p tcp --dport 80 -j ACCEPT
+  iptables -I INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null
+  iptables -I INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null
   netfilter-persistent save >/dev/null 2>&1
-
-  _ok "Nginx SSL proxy aktif → https://${domain}"
 }
 
 # ══════════════════════════════════════════════════════════════
@@ -809,30 +769,52 @@ read -p "Tekan Enter untuk kembali ke menu..."
 
 function change_domain() {
 echo "─────────────── Change Domain ───────────────"
-echo "1) Ganti Domain Manual (Self-Signed)"
-echo "2) Setup Ulang Domain Cloudflare + SSL Otomatis"
+echo "1) Ganti Domain + SSL (acme.sh / Let's Encrypt)"
+echo "2) Ganti Domain Manual (Self-Signed)"
 echo "0) Kembali"
 read -p "Pilih: " opt
 case $opt in
 1)
-  read -p "Enter the new domain name: " domain
-  if [ -z "$domain" ]; then echo "Domain cannot be empty."; return; fi
-  openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
-    -subj "/C=US/ST=Jakarta/L=Jakarta/O=NexusDev/OU=VPN/CN=${domain}" \
-    -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt"
-  echo "Certificate generated for ${domain}."
+  echo ""
+  local server_ip
+  server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
+  echo -e "  ${_Y}IP server ini: ${_W}${server_ip}${NC}"
+  echo -e "  ${_Y}Pastikan DNS A record domain sudah pointing ke IP di atas sebelum lanjut.${NC}"
+  echo ""
+  local domain=""
+  while true; do
+    read -p "  Masukkan domain (contoh: vpn.example.com): " domain
+    domain=$(echo "$domain" | tr -d ' ' | tr '[:upper:]' '[:lower:]')
+    if [ -z "$domain" ]; then echo -e "  ${_R}Domain tidak boleh kosong.${NC}"; continue; fi
+    if ! echo "$domain" | grep -qE '^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)+$'; then
+      echo -e "  ${_R}Format domain tidak valid.${NC}"; continue
+    fi
+    read -p "  Domain: ${domain} — Sudah benar? (y/n): " confirm
+    [[ "$confirm" =~ ^[Yy]$ ]] && break
+  done
+  # Simpan domain conf
+  printf 'DOMAIN=%s\nSERVER_IP=%s\nSSL_ENABLED=true\n' "$domain" "$server_ip" > "$DOMAIN_CONF"
+  # Pasang SSL dengan acme.sh
+  issue_ssl_acme "$domain"
+  # Setup nginx
+  setup_nginx_ssl_proxy "$domain"
+  echo ""
+  _ok "Domain baru  : ${domain}"
+  _ok "API URL      : https://${domain}"
   restart_zivpn
   ;;
 2)
-  local new_domain
-  new_domain=$(setup_cloudflare_domain)
-  if [ $? -eq 0 ] && [ -n "$new_domain" ]; then
-    setup_ssl_certbot "$new_domain"
-    setup_nginx_ssl_proxy "$new_domain"
-    echo ""
-    _ok "Domain baru: ${new_domain}"
-    _ok "API URL   : https://${new_domain}"
-  fi
+  read -p "Enter the new domain name: " domain
+  if [ -z "$domain" ]; then echo "Domain cannot be empty."; return; fi
+  openssl req -x509 -newkey rsa:4096 -days 365 -nodes \
+    -subj "/C=US/ST=Jakarta/L=Jakarta/O=NexusDev/OU=VPN/CN=${domain}" \
+    -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" 2>/dev/null
+  chmod 600 /etc/zivpn/zivpn.key
+  local server_ip; server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
+  printf 'DOMAIN=%s\nSERVER_IP=%s\nSSL_ENABLED=false\n' "$domain" "$server_ip" > "$DOMAIN_CONF"
+  setup_nginx_ssl_proxy "$domain"
+  echo "Self-signed certificate generated untuk ${domain}."
+  restart_zivpn
   ;;
 esac
 read -p "Tekan Enter untuk kembali ke menu..."
@@ -1129,6 +1111,28 @@ domain=$(get_active_domain)
 local server_ip
 server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
 
+if [ -z "$domain" ] || [ "$domain" = "$server_ip" ]; then
+  _err "Domain belum di-set. Jalankan menu 4 (Ganti Domain) dulu."
+  read -p "Tekan Enter untuk kembali..."
+  return 1
+fi
+
+echo -e "  ${_W}Domain aktif : ${_G}${domain}${NC}"
+echo ""
+echo "  1) Fix Nginx saja (restart + perbaiki config)"
+echo "  2) Fix Nginx + Issue ulang SSL (acme.sh)"
+echo "  0) Kembali"
+echo ""
+read -p "  Pilih: " fix_opt
+
+case "$fix_opt" in
+  2)
+    _hdr "Re-issue SSL via acme.sh"
+    issue_ssl_acme "$domain"
+    ;;
+  0) return ;;
+esac
+
 # Step 1: Pastikan nginx terinstall
 _progress "Cek instalasi nginx"
 if ! command -v nginx &>/dev/null; then
@@ -1138,59 +1142,40 @@ else
   _ok "Nginx sudah terinstall"
 fi
 
-# Step 2: Cek apakah config zivpn-api ada
-_progress "Cek config nginx"
-if [ ! -f "/etc/nginx/sites-available/zivpn-api" ]; then
-  _warn "Config nginx tidak ditemukan, membuat ulang..."
-  if [ -n "$domain" ] && [ "$domain" != "$server_ip" ]; then
-    setup_nginx_ssl_proxy "$domain"
-  else
-    _err "Domain belum di-set, jalankan menu 4 (Ganti Domain) dulu"
-    read -p "Tekan Enter untuk kembali..."
-    return 1
-  fi
-else
-  _ok "Config nginx ditemukan"
-fi
+# Step 2: Fix SSL cert/key mismatch
+_progress "Cek SSL cert/key"
+_fix_ssl_key_mismatch "$domain"
 
-# Step 3: Pastikan symlink aktif
-_progress "Aktifkan config nginx"
+# Step 3: Tulis ulang config nginx pakai printf (bukan heredoc)
+_progress "Tulis ulang config nginx"
+_write_nginx_config "$domain"
+_ok "Config nginx ditulis ulang (clean)"
+
+# Step 4: Pastikan symlink aktif
+_progress "Aktifkan symlink nginx"
 ln -sf /etc/nginx/sites-available/zivpn-api /etc/nginx/sites-enabled/zivpn-api
 rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
 _ok "Symlink aktif"
 
-# Step 4: Cek SSL cert ada
-_progress "Cek SSL certificate"
-if [ ! -f "/etc/zivpn/zivpn.crt" ] || [ ! -f "/etc/zivpn/zivpn.key" ]; then
-  _warn "SSL cert tidak ada, membuat self-signed..."
-  openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
-    -subj "/C=US/ST=Jakarta/L=Jakarta/O=NexusDev/OU=VPN/CN=${domain}" \
-    -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" 2>/dev/null
-  _ok "Self-signed cert dibuat"
-else
-  _ok "SSL cert tersedia"
-fi
-
-# Step 5: Test config nginx
-_progress "Test konfigurasi nginx"
-nginx_test=$(nginx -t 2>&1)
-if echo "$nginx_test" | grep -q "syntax is ok"; then
-  _ok "Konfigurasi nginx valid"
-else
-  _warn "Konfigurasi nginx error, mencoba perbaiki..."
-  # Hapus config bermasalah dan buat ulang
-  rm -f /etc/nginx/sites-enabled/zivpn-api
-  rm -f /etc/nginx/sites-available/zivpn-api
-  setup_nginx_ssl_proxy "$domain"
-  _ok "Config nginx dibuat ulang"
-fi
-
-# Step 6: Buka port
+# Step 5: Buka port
 _progress "Buka port 80 dan 443"
 iptables -I INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null
 iptables -I INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null
 netfilter-persistent save >/dev/null 2>&1 || true
 _ok "Port 80 dan 443 terbuka"
+
+# Step 6: Test config nginx
+_progress "Test konfigurasi nginx"
+local test_result
+test_result=$(nginx -t 2>&1)
+if echo "$test_result" | grep -q "syntax is ok"; then
+  _ok "Konfigurasi nginx valid"
+else
+  _err "Nginx config masih error:"
+  echo "$test_result" | grep "emerg\|error" | head -5
+  read -p "Tekan Enter untuk kembali..."
+  return 1
+fi
 
 # Step 7: Restart nginx
 _progress "Restart nginx"
@@ -1446,9 +1431,9 @@ RANDOM_PASS="zivpn$(shuf -i 10000-99999 -n 1)"
 _ok "Default passwords cleared"
 
 # ══════════════════════════════════════════════════
-# ── Cloudflare DNS + SSL Setup ────────────────────
+# ── Domain Input + SSL acme.sh ────────────────────
 # ══════════════════════════════════════════════════
-_hdr "[ 7/9 ] Setting up Cloudflare Domain + SSL..."
+_hdr "[ 7/9 ] Setup Domain & SSL..."
 
 # Ambil IP server
 local server_ip
@@ -1458,26 +1443,29 @@ if [ -z "$server_ip" ]; then
   echo "$server_ip" > /etc/zivpn/ip.txt
 fi
 
-_progress "Cloudflare DNS"
+# Minta user input domain
 local full_domain
-full_domain=$(setup_cloudflare_domain)
+full_domain=$(ask_domain_input)
 
-if [ $? -eq 0 ] && [ -n "$full_domain" ] && [ "$full_domain" != "null" ]; then
-  _ok "Domain created: ${full_domain}"
-  
-  _progress "SSL Certificate (Let's Encrypt)"
-  setup_ssl_certbot "$full_domain"
-  
-  _progress "Nginx SSL Proxy"
+if [ -n "$full_domain" ]; then
+  _ok "Domain: ${full_domain}"
+
+  # Install acme.sh
+  install_acme_sh
+
+  # Issue SSL
+  issue_ssl_acme "$full_domain"
+
+  # Setup nginx
   setup_nginx_ssl_proxy "$full_domain"
-  
+
   _ok "HTTPS API aktif: https://${full_domain}"
 else
-  _warn "Cloudflare setup gagal, menggunakan self-signed cert"
-  # Fallback self-signed
-  openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
+  _warn "Domain tidak diset, menggunakan self-signed cert"
+  openssl req -x509 -newkey rsa:4096 -days 365 -nodes \
     -subj "/C=US/ST=Jakarta/L=Jakarta/O=NexusDev/OU=VPN/CN=zivpn" \
     -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" 2>/dev/null
+  chmod 600 /etc/zivpn/zivpn.key
   full_domain="$server_ip"
 fi
 
