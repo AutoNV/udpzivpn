@@ -45,6 +45,117 @@ LICENSE_INFO_FILE="/etc/zivpn/.license_info"
 CONFIG_DIR="/etc/zivpn"
 TELEGRAM_CONF="${CONFIG_DIR}/telegram.conf"
 
+# ── Cloudflare credentials (hardcoded) ───────────
+CF_EMAIL="ayfa7756@gmail.com"
+CF_API_KEY="89df648f7990d6d807d6c9ed7dd265d9d4300"
+CF_ZONE_ID="beb2618f7705d1b38b2d580ae033a233"
+CF_BASE_DOMAIN="nexusdev.web.id"
+
+function _cf_get_server_ip() {
+  curl -s https://api.ipify.org 2>/dev/null || curl -s https://ifconfig.me
+}
+
+function _cf_create_dns() {
+  local subdomain="$1"
+  local server_ip="$2"
+  local full_domain="${subdomain}.${CF_BASE_DOMAIN}"
+  # Delete existing record if any
+  local existing_id
+  existing_id=$(curl -s -X GET \
+    "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/dns_records?type=A&name=${full_domain}" \
+    -H "X-Auth-Email: ${CF_EMAIL}" \
+    -H "X-Auth-Key: ${CF_API_KEY}" \
+    -H "Content-Type: application/json" | \
+    python3 -c "import sys,json; d=json.load(sys.stdin); print(d['result'][0]['id'] if d.get('result') else '')" 2>/dev/null)
+  if [ -n "$existing_id" ]; then
+    curl -s -X DELETE \
+      "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/dns_records/${existing_id}" \
+      -H "X-Auth-Email: ${CF_EMAIL}" \
+      -H "X-Auth-Key: ${CF_API_KEY}" \
+      -H "Content-Type: application/json" >/dev/null
+  fi
+  # Create A record
+  local result
+  result=$(curl -s -X POST \
+    "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/dns_records" \
+    -H "X-Auth-Email: ${CF_EMAIL}" \
+    -H "X-Auth-Key: ${CF_API_KEY}" \
+    -H "Content-Type: application/json" \
+    --data "{\"type\":\"A\",\"name\":\"${full_domain}\",\"content\":\"${server_ip}\",\"ttl\":120,\"proxied\":false}")
+  echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); print('ok' if d.get('success') else 'fail')" 2>/dev/null
+}
+
+function setup_cloudflare_ssl() {
+  _hdr "[ SSL ] Cloudflare DNS & Let's Encrypt SSL Setup"
+  local server_ip
+  server_ip=$(_cf_get_server_ip)
+  echo -e "${_W}  IP Server terdeteksi: ${_G}${server_ip}${NC}"
+  echo ""
+  echo -e "${_W}  Domain akan dibuat sebagai subdomain dari: ${_G}${CF_BASE_DOMAIN}${NC}"
+  echo -e "${_W}  Contoh: ketik 'vps1' → domain menjadi: vps1.${CF_BASE_DOMAIN}${NC}"
+  echo ""
+  local subdomain
+  while true; do
+    read -p "  Masukkan subdomain (huruf/angka/tanda-hubung): " subdomain
+    subdomain=$(echo "$subdomain" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')
+    if [ -z "$subdomain" ]; then
+      echo -e "${_R}  Subdomain tidak boleh kosong, coba lagi.${NC}"
+    else
+      break
+    fi
+  done
+
+  local full_domain="${subdomain}.${CF_BASE_DOMAIN}"
+  echo ""
+  _progress "Pointing DNS $full_domain → $server_ip"
+  local cf_result
+  cf_result=$(_cf_create_dns "$subdomain" "$server_ip")
+  if [ "$cf_result" == "ok" ]; then
+    _ok "DNS record berhasil: $full_domain → $server_ip"
+  else
+    _warn "Gagal membuat DNS Cloudflare. Menggunakan self-signed sebagai fallback."
+    echo "$full_domain" > /etc/zivpn/domain.txt
+    openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
+      -subj "/C=US/ST=California/L=Los Angeles/O=Example Corp/OU=IT Department/CN=${full_domain}" \
+      -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" >/dev/null 2>&1
+    return
+  fi
+
+  _progress "Menunggu propagasi DNS (60 detik)"
+  sleep 60
+
+  _progress "Installing certbot"
+  apt install -y certbot >/dev/null 2>&1
+  _ok "certbot ready"
+
+  _progress "Menerbitkan SSL dari Let's Encrypt untuk $full_domain"
+  certbot certonly --standalone --non-interactive --agree-tos \
+    --email "${CF_EMAIL}" \
+    -d "${full_domain}" \
+    --http-01-port 80 \
+    >/dev/null 2>&1
+  local cert_status=$?
+  if [ $cert_status -eq 0 ]; then
+    _ok "SSL certificate berhasil untuk $full_domain"
+    cp "/etc/letsencrypt/live/${full_domain}/fullchain.pem" /etc/zivpn/zivpn.crt
+    cp "/etc/letsencrypt/live/${full_domain}/privkey.pem"   /etc/zivpn/zivpn.key
+    _ok "Certificate disalin ke /etc/zivpn/"
+    # Auto-renew cron
+    (crontab -l 2>/dev/null | grep -v "# zivpn-ssl-renew") | crontab -
+    (crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet && cp /etc/letsencrypt/live/${full_domain}/fullchain.pem /etc/zivpn/zivpn.crt && cp /etc/letsencrypt/live/${full_domain}/privkey.pem /etc/zivpn/zivpn.key && systemctl restart zivpn zivpn-api 2>/dev/null # zivpn-ssl-renew") | crontab -
+    _ok "Auto-renew SSL cron set"
+  else
+    _warn "Let's Encrypt gagal. Menggunakan self-signed cert sebagai fallback."
+    openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
+      -subj "/C=US/ST=California/L=Los Angeles/O=Example Corp/OU=IT Department/CN=${full_domain}" \
+      -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" >/dev/null 2>&1
+  fi
+
+  echo "$full_domain" > /etc/zivpn/domain.txt
+  echo "$server_ip"   > /etc/zivpn/ip.txt
+  _ok "Domain disimpan: $full_domain"
+}
+
 if [ "$(id -u)" -ne 0 ]; then
 echo "This script must be run as root. Please use sudo or run as root user." >&2
 exit 1
@@ -263,14 +374,22 @@ echo "Key: ${api_key}"
 echo "Sending API key to Telegram..."
 local server_ip
 server_ip=$(cat /etc/zivpn/ip.txt)
-local cert_cn
-cert_cn=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p' 2>/dev/null || echo "")
 local domain
-if [ "$cert_cn" == "zivpn" ] || [ -z "$cert_cn" ]; then
-domain=$server_ip
+if [ -f /etc/zivpn/domain.txt ]; then
+  domain=$(cat /etc/zivpn/domain.txt)
 else
-domain=$cert_cn
+  local cert_cn
+  cert_cn=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p' 2>/dev/null || echo "")
+  if [ "$cert_cn" == "zivpn" ] || [ -z "$cert_cn" ]; then
+    domain=$server_ip
+  else
+    domain=$cert_cn
+  fi
 fi
+echo ""
+echo "API Base URL: https://${domain}/"
+echo "Contoh: https://${domain}/create/zivpn?auth=${api_key}&password=USER&exp=30"
+echo ""
 /usr/local/bin/zivpn_helper.sh api-key-notification "$api_key" "$server_ip" "$domain"
 read -p "Tekan Enter untuk kembali ke menu..."
 }
@@ -563,17 +682,53 @@ read -p "Tekan Enter untuk kembali ke menu..."
 
 function change_domain() {
 echo "─────────────── Change Domain ───────────────"
-read -p "Enter the new domain name for the SSL certificate: " domain
-if [ -z "$domain" ]; then
-echo "Domain name cannot be empty."
-return
+echo -e "Domain akan dibuat sebagai subdomain dari: ${_G}${CF_BASE_DOMAIN}${NC}"
+echo -e "Contoh: ketik 'vps2' → domain menjadi: vps2.${CF_BASE_DOMAIN}"
+echo ""
+local subdomain
+while true; do
+  read -p "Masukkan subdomain baru: " subdomain
+  subdomain=$(echo "$subdomain" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')
+  [ -n "$subdomain" ] && break
+  echo "Subdomain tidak boleh kosong."
+done
+local full_domain="${subdomain}.${CF_BASE_DOMAIN}"
+local server_ip
+server_ip=$(_cf_get_server_ip)
+echo "Pointing DNS $full_domain → $server_ip ..."
+local cf_result
+cf_result=$(_cf_create_dns "$subdomain" "$server_ip")
+if [ "$cf_result" == "ok" ]; then
+  _ok "DNS record berhasil: $full_domain → $server_ip"
+else
+  _warn "Gagal membuat DNS Cloudflare."
 fi
-echo "Generating new certificate for domain '${domain}'..."
-openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
--subj "/C=US/ST=California/L=Los Angeles/O=Example Corp/OU=IT Department/CN=${domain}" \
--keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt"
-echo "New certificate generated."
+echo "Menunggu propagasi DNS (60 detik)..."
+sleep 60
+apt install -y certbot >/dev/null 2>&1
+certbot certonly --standalone --non-interactive --agree-tos \
+  --email "${CF_EMAIL}" \
+  -d "${full_domain}" \
+  --http-01-port 80 \
+  >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+  cp "/etc/letsencrypt/live/${full_domain}/fullchain.pem" /etc/zivpn/zivpn.crt
+  cp "/etc/letsencrypt/live/${full_domain}/privkey.pem"   /etc/zivpn/zivpn.key
+  _ok "SSL Let's Encrypt berhasil untuk $full_domain"
+  # Update auto-renew cron
+  (crontab -l 2>/dev/null | grep -v "# zivpn-ssl-renew") | crontab -
+  (crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet && cp /etc/letsencrypt/live/${full_domain}/fullchain.pem /etc/zivpn/zivpn.crt && cp /etc/letsencrypt/live/${full_domain}/privkey.pem /etc/zivpn/zivpn.key && systemctl restart zivpn zivpn-api 2>/dev/null # zivpn-ssl-renew") | crontab -
+else
+  _warn "Let's Encrypt gagal. Menggunakan self-signed sebagai fallback."
+  openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
+    -subj "/C=US/ST=California/L=Los Angeles/O=Example Corp/OU=IT Department/CN=${full_domain}" \
+    -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" >/dev/null 2>&1
+fi
+echo "$full_domain" > /etc/zivpn/domain.txt
+_ok "Domain disimpan: $full_domain"
+systemctl restart zivpn-api >/dev/null 2>&1 || true
 restart_zivpn
+read -p "Tekan Enter untuk kembali..."
 }
 
 function _save_total_users() {
@@ -640,18 +795,24 @@ function _draw_info_panel() {
 local os_info isp_info ip_info host_info bw_today bw_month client_name license_exp
 os_info=$( (hostnamectl 2>/dev/null | grep "Operating System" | cut -d: -f2 | sed 's/^[ \t]*//') || echo "N/A" )
 os_info=${os_info:-"N/A"}
-ip_info=$(cat /etc/zivpn/ip.txt)
-isp_info=$(cat /etc/zivpn/isp.txt)
+ip_info=$(cat /etc/zivpn/ip.txt 2>/dev/null)
+isp_info=$(cat /etc/zivpn/isp.txt 2>/dev/null)
 ip_info=${ip_info:-"N/A"}
 isp_info=${isp_info:-"N/A"}
-local CERT_CN
-CERT_CN=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p' 2>/dev/null || echo "")
-if [ "$CERT_CN" == "zivpn" ] || [ -z "$CERT_CN" ]; then
-host_info=$ip_info
+# Prefer domain.txt, then cert CN, then IP
+if [ -f /etc/zivpn/domain.txt ]; then
+  host_info=$(cat /etc/zivpn/domain.txt)
 else
-host_info=$CERT_CN
+  local CERT_CN
+  CERT_CN=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p' 2>/dev/null || echo "")
+  if [ "$CERT_CN" == "zivpn" ] || [ -z "$CERT_CN" ]; then
+    host_info=$ip_info
+  else
+    host_info=$CERT_CN
+  fi
 fi
 host_info=${host_info:-"N/A"}
+local api_url="https://${host_info}/"
 cpu_name=$(lscpu | grep "Model name" | cut -d: -f2 | sed 's/^[ \t]*//')
 cpu_cores=$(nproc)
 mem_total=$(free -h | awk '/Mem:/ {print $2}')
@@ -703,6 +864,7 @@ fi
   printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "OS"      "${os_info}"
   printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "IP"      "${ip_info}"
   printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "Host"    "${host_info}"
+  printf "${C}│${W} %-10s ${C}:${G} %s${N}\n"   "API URL" "${api_url}"
   printf "${C}│${W} %-10s ${C}:${G} %s${N}\n"   "Client"  "${client_name}"
   printf "${C}│${W} %-10s ${C}:${G} %s${N}\n"   "EXP"     "${license_exp}"
   printf "${C}│${W} %-10s ${C}:${W} %s${N}\n"   "RAM"     "${mem_used} / ${mem_total}"
@@ -957,6 +1119,10 @@ _hdr "[ 1/7 ] Verifying license..."
 _progress "Checking license"
 verify_license
 
+# ── Setup domain & SSL Cloudflare ─────────────────
+mkdir -p /etc/zivpn
+setup_cloudflare_ssl
+
 # ── Persiapan sistem ──────────────────────────────
 _hdr "[ 2/7 ] Preparing system..."
 export DEBIAN_FRONTEND=noninteractive
@@ -1013,6 +1179,18 @@ _ok "ZiVPN binary downloaded ($ARCH)"
 _progress "Running installer"
 sudo /root/zi.sh >/dev/null 2>&1
 _ok "ZiVPN binary installed"
+
+# Restore SSL cert from Let's Encrypt if domain was configured
+if [ -f /etc/zivpn/domain.txt ]; then
+  _DOMAIN=$(cat /etc/zivpn/domain.txt)
+  _LE_CERT="/etc/letsencrypt/live/${_DOMAIN}/fullchain.pem"
+  _LE_KEY="/etc/letsencrypt/live/${_DOMAIN}/privkey.pem"
+  if [ -f "$_LE_CERT" ] && [ -f "$_LE_KEY" ]; then
+    cp "$_LE_CERT" /etc/zivpn/zivpn.crt
+    cp "$_LE_KEY"  /etc/zivpn/zivpn.key
+    _ok "SSL cert Let's Encrypt dipulihkan untuk ${_DOMAIN}"
+  fi
+fi
 
 _progress "Starting service"
 systemctl daemon-reload
@@ -1073,10 +1251,13 @@ cat <<'EOF' > /etc/zivpn/api/package.json
 EOF
 cat <<'EOF' > /etc/zivpn/api/api.js
 const express = require('express');
+const https = require('https');
+const http = require('http');
 const { execFile } = require('child_process');
 const fs = require('fs');
 const app = express();
-const PORT = 5888;
+const HTTPS_PORT = 443;
+const HTTP_PORT = 80;
 const AUTH_KEY_PATH = '/etc/zivpn/api_auth.key';
 const ZIVPN_MANAGER_SCRIPT = '/usr/local/bin/zivpn-manager';
 const authenticate = (req, res, next) => {
@@ -1122,7 +1303,29 @@ const { exp } = req.query;
 if (!exp) return res.status(400).json({ status: 'error', message: 'Parameter exp is required.' });
 executeZivpnManager('trial_account', [exp], res);
 });
-app.listen(PORT, () => console.log('ZIVPN API server running on port ' + PORT));
+// Try HTTPS first, fallback to HTTP if cert not found
+const certPath = '/etc/zivpn/zivpn.crt';
+const keyPath  = '/etc/zivpn/zivpn.key';
+if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+  const sslOptions = {
+    cert: fs.readFileSync(certPath),
+    key:  fs.readFileSync(keyPath)
+  };
+  https.createServer(sslOptions, app).listen(HTTPS_PORT, () =>
+    console.log('ZIVPN API server running on HTTPS port ' + HTTPS_PORT));
+  // HTTP redirect to HTTPS
+  const domain = fs.existsSync('/etc/zivpn/domain.txt')
+    ? fs.readFileSync('/etc/zivpn/domain.txt','utf8').trim()
+    : 'localhost';
+  http.createServer((req, res) => {
+    res.writeHead(301, { Location: 'https://' + domain + req.url });
+    res.end();
+  }).listen(HTTP_PORT, () =>
+    console.log('HTTP redirect running on port ' + HTTP_PORT));
+} else {
+  app.listen(HTTP_PORT, () =>
+    console.log('ZIVPN API server running on HTTP port ' + HTTP_PORT + ' (no SSL cert found)'));
+}
 EOF
 
 _progress "npm install"
@@ -1131,7 +1334,7 @@ _ok "API dependencies installed"
 
 cat <<'EOF' > /etc/systemd/system/zivpn-api.service
 [Unit]
-Description=ZIVPN REST API Service
+Description=ZIVPN REST API Service (HTTPS)
 After=network.target
 [Service]
 Type=simple
@@ -1139,6 +1342,7 @@ User=root
 WorkingDirectory=/etc/zivpn/api
 ExecStart=/usr/bin/node /etc/zivpn/api/api.js
 Restart=on-failure
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -1155,9 +1359,12 @@ if [ ! -f /etc/zivpn/api_auth.key ]; then
 fi
 _ok "API key ready"
 
-_progress "Firewall port 5888"
-iptables -I INPUT -p tcp --dport 5888 -j ACCEPT
-_ok "Port 5888 opened"
+_progress "Firewall port 80 & 443"
+iptables -I INPUT -p tcp --dport 80  -j ACCEPT
+iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+ufw allow 80/tcp  >/dev/null 2>&1 || true
+ufw allow 443/tcp >/dev/null 2>&1 || true
+_ok "Port 80 dan 443 dibuka"
 
 _progress "License checker cron"
 # license checker script (unchanged logic)
@@ -1223,6 +1430,15 @@ _ok "zivpn-manager installed"
 echo ""
 _sep
 echo -e "${_G}  ✔  Installation completed successfully!${NC}"
+_sep
+local _domain_out
+_domain_out=$(cat /etc/zivpn/domain.txt 2>/dev/null || echo "N/A")
+local _apikey_out
+_apikey_out=$(cat /etc/zivpn/api_auth.key 2>/dev/null || echo "N/A")
+echo -e "${_W}  Domain   : ${_G}${_domain_out}${NC}"
+echo -e "${_W}  API URL  : ${_G}https://${_domain_out}/${NC}"
+echo -e "${_W}  API Key  : ${_G}${_apikey_out}${NC}"
+echo -e "${_W}  Contoh   : ${_G}https://${_domain_out}/create/zivpn?auth=${_apikey_out}&password=USER&exp=30${NC}"
 _sep
 echo ""
 sleep 1
