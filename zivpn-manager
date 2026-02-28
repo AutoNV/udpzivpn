@@ -1228,17 +1228,6 @@ echo ""
 sleep 1
 
 if [ -f "/usr/local/bin/zivpn-manager" ]; then
-_sep
-echo -e "${_W}  PILIH MODE MENU VPS${NC}"
-_sep
-echo -e "${_W}  1. Dual SC (Mode gabungan)${NC}"
-echo -e "${_W}  2. ZIVPN Only (Menu standar)${NC}"
-_sep
-read -p "  Pilih mode (1/2) : " mode
-if [ "$mode" = "1" ]; then
-bash <(curl -sSL https://raw.githubusercontent.com/arivpnstores/costum/main/.bashrc)
-_ok "Mode: Dual SC aktif"
-elif [ "$mode" = "2" ]; then
 rm -rf /root/.profile
 cat <<EOF > /root/.profile
 if [ "$BASH" ]; then
@@ -1258,9 +1247,6 @@ AUTORUN_CMD="/usr/local/bin/zivpn-manager"
 grep -qF "$ALIAS_CMD" "$PROFILE_FILE" || echo "$ALIAS_CMD" >> "$PROFILE_FILE"
 grep -qF "$AUTORUN_CMD" "$PROFILE_FILE" || echo "$AUTORUN_CMD" >> "$PROFILE_FILE"
 _ok "Mode: ZIVPN Only aktif"
-else
-_warn "Pilihan tidak valid, menu default tidak diaktifkan."
-fi
 fi
 show_menu
 }
