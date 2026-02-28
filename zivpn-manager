@@ -1117,6 +1117,138 @@ echo -e "${RED}❌ Pilihan tidak valid${NC}"
 fi
 }
 
+function fix_nginx() {
+clear
+echo -e "${_C}════════════════════════════════════════════${NC}"
+echo -e "${_W}       🔧  Fix / Restart Nginx SSL         ${NC}"
+echo -e "${_C}════════════════════════════════════════════${NC}"
+echo ""
+
+local domain
+domain=$(get_active_domain)
+local server_ip
+server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
+
+# Step 1: Pastikan nginx terinstall
+_progress "Cek instalasi nginx"
+if ! command -v nginx &>/dev/null; then
+  apt install -y nginx >/dev/null 2>&1
+  _ok "Nginx diinstall"
+else
+  _ok "Nginx sudah terinstall"
+fi
+
+# Step 2: Cek apakah config zivpn-api ada
+_progress "Cek config nginx"
+if [ ! -f "/etc/nginx/sites-available/zivpn-api" ]; then
+  _warn "Config nginx tidak ditemukan, membuat ulang..."
+  if [ -n "$domain" ] && [ "$domain" != "$server_ip" ]; then
+    setup_nginx_ssl_proxy "$domain"
+  else
+    _err "Domain belum di-set, jalankan menu 4 (Ganti Domain) dulu"
+    read -p "Tekan Enter untuk kembali..."
+    return 1
+  fi
+else
+  _ok "Config nginx ditemukan"
+fi
+
+# Step 3: Pastikan symlink aktif
+_progress "Aktifkan config nginx"
+ln -sf /etc/nginx/sites-available/zivpn-api /etc/nginx/sites-enabled/zivpn-api
+rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+_ok "Symlink aktif"
+
+# Step 4: Cek SSL cert ada
+_progress "Cek SSL certificate"
+if [ ! -f "/etc/zivpn/zivpn.crt" ] || [ ! -f "/etc/zivpn/zivpn.key" ]; then
+  _warn "SSL cert tidak ada, membuat self-signed..."
+  openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
+    -subj "/C=US/ST=Jakarta/L=Jakarta/O=NexusDev/OU=VPN/CN=${domain}" \
+    -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt" 2>/dev/null
+  _ok "Self-signed cert dibuat"
+else
+  _ok "SSL cert tersedia"
+fi
+
+# Step 5: Test config nginx
+_progress "Test konfigurasi nginx"
+nginx_test=$(nginx -t 2>&1)
+if echo "$nginx_test" | grep -q "syntax is ok"; then
+  _ok "Konfigurasi nginx valid"
+else
+  _warn "Konfigurasi nginx error, mencoba perbaiki..."
+  # Hapus config bermasalah dan buat ulang
+  rm -f /etc/nginx/sites-enabled/zivpn-api
+  rm -f /etc/nginx/sites-available/zivpn-api
+  setup_nginx_ssl_proxy "$domain"
+  _ok "Config nginx dibuat ulang"
+fi
+
+# Step 6: Buka port
+_progress "Buka port 80 dan 443"
+iptables -I INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null
+iptables -I INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null
+netfilter-persistent save >/dev/null 2>&1 || true
+_ok "Port 80 dan 443 terbuka"
+
+# Step 7: Restart nginx
+_progress "Restart nginx"
+systemctl daemon-reload
+systemctl enable nginx >/dev/null 2>&1
+systemctl restart nginx
+
+sleep 1
+local nginx_status
+nginx_status=$(systemctl is-active nginx 2>/dev/null)
+if [ "$nginx_status" = "active" ]; then
+  _ok "Nginx AKTIF ✔"
+else
+  _err "Nginx masih gagal start"
+  echo ""
+  echo "─── Error log nginx ───"
+  journalctl -u nginx --no-pager -n 20 2>/dev/null | tail -15
+fi
+
+echo ""
+echo -e "${_C}════════════════════════════════════════════${NC}"
+local api_base
+api_base=$(get_api_base_url)
+local api_key
+api_key=$(cat /etc/zivpn/api_auth.key 2>/dev/null || echo "N/A")
+echo -e "${_W} Domain  : ${_G}${domain}${NC}"
+echo -e "${_W} Status  : ${_G}$(systemctl is-active nginx)${NC}"
+echo -e "${_W} API URL : ${_G}${api_base}/trial/zivpn?exp=60&auth=${api_key}${NC}"
+echo -e "${_C}════════════════════════════════════════════${NC}"
+echo ""
+read -p "Tekan Enter untuk kembali ke menu..."
+}
+
+function _auto_fix_nginx_if_down() {
+  # Dipanggil otomatis saat show_menu - fix nginx diam-diam jika mati
+  local nginx_status
+  nginx_status=$(systemctl is-active nginx 2>/dev/null)
+  if [ "$nginx_status" != "active" ]; then
+    # Coba restart dulu (silent)
+    systemctl restart nginx >/dev/null 2>&1
+    sleep 1
+    nginx_status=$(systemctl is-active nginx 2>/dev/null)
+    if [ "$nginx_status" != "active" ]; then
+      # Kalau masih mati, perbaiki config dulu lalu restart
+      local domain
+      domain=$(get_active_domain)
+      local server_ip
+      server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null)
+      if [ -n "$domain" ] && [ "$domain" != "$server_ip" ]; then
+        # Pastikan symlink ada
+        ln -sf /etc/nginx/sites-available/zivpn-api /etc/nginx/sites-enabled/zivpn-api 2>/dev/null
+        rm -f /etc/nginx/sites-enabled/default 2>/dev/null
+        systemctl restart nginx >/dev/null 2>&1
+      fi
+    fi
+  fi
+}
+
 function show_expired_message_and_exit() {
 clear
 echo -e "\n${RED}──────────────────────────────────────────────────────${NC}"
@@ -1130,6 +1262,8 @@ exit 0
 
 function show_menu() {
 if [ -f "/etc/zivpn/.expired" ]; then show_expired_message_and_exit; fi
+# Auto fix nginx jika mati (silent background)
+_auto_fix_nginx_if_down
 clear
 
   local W='\033[1;37m'
@@ -1163,11 +1297,19 @@ clear
   printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "5"  "Daftar Akun"     "12" "Speedtest"
   printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "6"  "Backup/Restore"  "13" "Perbaiki Error"
   printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "7"  "Buat API Key"    "14" "Auto Reboot"
+
+  # Tampilkan peringatan jika Nginx OFF
+  local _ng_st; _ng_st=$(systemctl is-active nginx 2>/dev/null)
+  if [ "$_ng_st" != "active" ]; then
+    printf  "${C}│${W}  %2s. %-16s   ${R}⚠  Nginx SSL OFF → Pilih 15 untuk Fix!${N}\n" "15" "Fix Nginx SSL"
+  else
+    printf  "${C}│${W}  %2s. %-16s${N}\n" "15" "Fix Nginx SSL"
+  fi
   echo -e "${C}├────────────────────────────────────────────"
   printf  "${C}│${W}  x) Keluar${N}\n"
   echo -e "${C}└────────────────────────────────────────────┘${N}"
   echo ""
-  read -p " Pilih Menu (1-14 atau x): " choice
+  read -p " Pilih Menu (1-15 atau x): " choice
   [[ "$choice" == "x" || "$choice" == "X" ]] && choice=0
 case $choice in
 1) create_account ;;
@@ -1184,6 +1326,7 @@ case $choice in
 12) wget https://raw.githubusercontent.com/arivpnstores/v4/main/Cdy/speedtest -O /usr/bin/speedtest && chmod +x /usr/bin/speedtest && yes | /usr/bin/speedtest && read -p "Tekan Enter..." && /usr/local/bin/zivpn-manager ;;
 13) wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/fix-zivpn.sh -O /usr/local/bin/fix-zivpn.sh && chmod +x /usr/local/bin/fix-zivpn.sh && /usr/local/bin/fix-zivpn.sh && read -p "Tekan Enter..." && /usr/local/bin/zivpn-manager ;;
 14) set_reboot_menu ;;
+15) fix_nginx ;;
 0) exit 0 ;;
 *) echo "Invalid option." ;;
 esac
