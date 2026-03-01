@@ -217,24 +217,20 @@ return
 fi
 local result
 result=$(_create_account_logic "$password" "$days")
-if [[ "$result" == "Success"* ]]; then
-local db_file="/etc/zivpn/users.db"
-local user_line
-user_line=$(grep "^${password}:" "$db_file")
-if [ -n "$user_line" ]; then
-local expiry_date
-expiry_date=$(echo "$user_line" | cut -d: -f2)
-local CERT_CN
-CERT_CN=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p')
-local HOST
-if [ "$CERT_CN" == "zivpn" ]; then
-HOST=$(cat /etc/zivpn/ip.txt)
-else
-HOST=$CERT_CN
-fi
-local EXPIRE_FORMATTED
-EXPIRE_FORMATTED=$(date -d "@$expiry_date" +"%d %B %Y %H:%M")
-fi
+if [[ "$result" == *"Success:"* ]]; then
+local host ip isp expire
+host=$(echo "$result" | grep "^DATA:host=" | cut -d= -f2)
+ip=$(echo "$result" | grep "^DATA:ip=" | cut -d= -f2)
+isp=$(echo "$result" | grep "^DATA:isp=" | cut -d= -f2)
+expire=$(echo "$result" | grep "^DATA:expire=" | cut -d= -f2-)
+echo ""
+echo "─────── Account Created ───────"
+echo "Host   : $host"
+echo "IP     : $ip"
+echo "ISP    : $isp"
+echo "Pass   : $password"
+echo "Expire : $expire"
+echo "────────────────────────────────"
 else
 echo "$result"
 fi
@@ -251,7 +247,7 @@ function _auto_fix_port() {
   local N='\033[0m'
 
   echo -e "${C}┌────────────────────────────────────────────┐"
-  echo -e "${C}│${W}        🔧  Auto Fix Port API   V1         ${C}│"
+  echo -e "${C}│${W}        🔧  Auto Fix Port API             ${C}│"
   echo -e "${C}└────────────────────────────────────────────┘${N}"
   echo ""
 
