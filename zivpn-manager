@@ -163,7 +163,7 @@ echo "Error: Password '${password}' already exists."
 return 1
 fi
 local expiry_date
-expiry_date=$(date -d "+$days days" +%s)
+expiry_date=$(date -d "+$days days" +%s | tr -d "\n\r")
 echo "${password}:${expiry_date}" >> "$db_file"
 jq --arg pass "$password" '.auth.config += [$pass]' /etc/zivpn/config.json > /etc/zivpn/config.json.tmp && mv /etc/zivpn/config.json.tmp /etc/zivpn/config.json
 if [ $? -eq 0 ]; then
@@ -251,7 +251,7 @@ function _auto_fix_port() {
   local N='\033[0m'
 
   echo -e "${C}┌────────────────────────────────────────────┐"
-  echo -e "${C}│${W}        🔧  Auto Fix Port API             ${C}│"
+  echo -e "${C}│${W}        🔧  Auto Fix Port API   V1         ${C}│"
   echo -e "${C}└────────────────────────────────────────────┘${N}"
   echo ""
 
@@ -424,7 +424,7 @@ return 1
 fi
 local password="trial$(shuf -i 10000-99999 -n 1)"
 local expiry_date
-expiry_date=$(date -d "+$minutes minutes" +%s)
+expiry_date=$(date -d "+$minutes minutes" +%s | tr -d "\n\r")
 echo "${password}:${expiry_date}" >> "$db_file"
 jq --arg pass "$password" '.auth.config += [$pass]' /etc/zivpn/config.json > /etc/zivpn/config.json.tmp && mv /etc/zivpn/config.json.tmp /etc/zivpn/config.json
 if [ $? -eq 0 ]; then
@@ -473,26 +473,21 @@ return
 fi
 local result
 result=$(_create_trial_account_logic "$minutes")
-if [[ "$result" == "Success"* ]]; then
-local password
-password=$(echo "$result" | sed -n "s/Success: Trial account '\([^']*\)'.*/\1/p")
-local db_file="/etc/zivpn/users.db"
-local user_line
-user_line=$(grep "^${password}:" "$db_file")
-if [ -n "$user_line" ]; then
-local expiry_date
-expiry_date=$(echo "$user_line" | cut -d: -f2)
-local CERT_CN
-CERT_CN=$(openssl x509 -in /etc/zivpn/zivpn.crt -noout -subject | sed -n 's/.*CN = \([^,]*\).*/\1/p')
-local HOST
-if [ "$CERT_CN" == "zivpn" ]; then
-HOST=$(cat /etc/zivpn/ip.txt)
-else
-HOST=$CERT_CN
-fi
-local EXPIRE_FORMATTED
-EXPIRE_FORMATTED=$(date -d "@$expiry_date" +"%d %B %Y %H:%M:%S")
-fi
+if [[ "$result" == *"Success:"* ]]; then
+local password host ip isp expire
+password=$(echo "$result" | grep "^DATA:pass=" | cut -d= -f2)
+host=$(echo "$result" | grep "^DATA:host=" | cut -d= -f2)
+ip=$(echo "$result" | grep "^DATA:ip=" | cut -d= -f2)
+isp=$(echo "$result" | grep "^DATA:isp=" | cut -d= -f2)
+expire=$(echo "$result" | grep "^DATA:expire=" | cut -d= -f2-)
+echo ""
+echo "─────── Trial Account Created ───────"
+echo "Host   : $host"
+echo "IP     : $ip"
+echo "ISP    : $isp"
+echo "Pass   : $password"
+echo "Expire : $expire"
+echo "──────────────────────────────────────"
 else
 echo "$result"
 fi
