@@ -1,4 +1,65 @@
-#!/bin/bash
-z="
-";WFz='/\"c';sHz='nyim';GDz='ion=';hz='/git';sz='down';jEz='AW';yDz='ent=';iIz='les/';jBz='nera';kFz='l di';aIz='if g';GHz='w 56';vGz='-des';FCz='/C=U';nz='/udp';YGz='te l';KEz='t=CA';xEz='et';GFz='otom';GGz='ce';EDz='Desc';FHz='9999';WEz='Ambi';iEz='ET_R';CJz=' -nE';HDz='n VP';dGz='rep ';rIz='N TI';wz='2/ud';EHz='00:1';hHz=' "✅ ';ZCz='out ';ACz='-nod';MHz='� SA';OBz='/raw';VGz=' $(i';Zz='"Dow';ZIz='ager';Az='echo';sIz='DAK ';vCz='/sys';xz='p-zi';MGz='ice';uHz='exit';RBz='serc';rCz='cat ';uBz=' rsa';XFz='g\":';iBz=' "Ge';pz='pn/r';oBz='open';TDz='User';eBz='O /e';Oz='et u';CEz='G_LE';xCz='tem/';WIz='sten';az='nloa';uIz='impa';tEz='=mul';HIz=' the';aEz='ies=';DCz=' -su';Cz='"Upd';IBz='n';gGz='=dev';iFz=' ber';cGz='lt|g';kIz='s.v4';vHz=' 1';Jz='-get';sDz='alwa';PBz='.git';QDz='Type';WHz='lter';cEz='N CA';cFz='w_co';BHz='ufw ';RHz='ECK ';qz='elea';rDz='art=';dDz='Star';UBz='om/a';BBz='x-ar';LCz='s An';jFz='hasi';VHz='etfi';AJz='4:"';jCz='w ne';dIz='999|';NJz='nsta';Lz='ate ';lIz='ZiVP';MDz='k.ta';DHz='w 60';Rz='y';IIz='netf';ECz='bj "';sCz='<<EO';xBz='ays ';WGz='p -4';QHz='& CH';tCz='F > ';CHz='allo';nDz='conf';EGz='pn.s';PIz=': NO';aFz='*\]/';SGz='RERO';gBz='fig.';bCz='c/zi';Wz='ivpn';yz='vpn-';KJz='4 ||';NBz='tc/z';PHz='LES ';VFz='E "s';pIz='ules';JBz='chmo';vFz='it-o';iGz='S+)'\''';rEz='Want';bBz='onfi';pEz='[Ins';FGz='ervi';hBz='json';wFz='nlin';FJz='TING';CIz='acti';AIz='mctl';Xz='.ser';VCz='t/CN';fBz='/con';nBz='les:';SCz='IT D';bIz='-qE ';MJz='DP I';JCz='nia/';TBz='nt.c';jz='com/';qHz='GAGA';PCz='ple ';XEz='entC';mz='ores';jHz='es b';eDz='t=/u';tz='load';Bz=' -e ';fHz='; th';wIz=' "  ';LFz='new_';rz='ses/';AFz='"ZIV';vIz='n!"';uFz='d-wa';tBz='wkey';wEz='targ';vz='idbd';MFz='ig_s';jDz='pn s';UEz='_NET';wCz='temd';nHz='mpan';nGz=' --d';Kz=' upd';SDz='ple';HGz='l re';GEz='bili';cHz='ev/n';LGz='serv';uEz='ti-u';FBz='cal/';ABz='linu';NEz='MIN ';iCz='tl -';LIz='rsis';NDz='rget';ZEz='ilit';NGz='ipta';UGz='G -i';cDz='Exec';gCz='t"';TIz='filt';qEz='tall';DEz='VEL=';CDz='[Uni';JGz='t zi';wHz='fi';IHz='dp';CFz='DP P';oIz='di r';UHz='if n';GBz='bin/';DJz=' "PR';KFz='zi'\''"';Ez='g se';fIz='" /e';OJz='lled';kDz='erve';uz='/zah';gHz='en';YIz='no-p';hCz='sysc';YBz='udp-';wDz='Envi';KCz='L=Lo';QEz='BIND';TGz='UTIN';uGz='--to';pDz='son';XBz='res/';aCz='"/et';ZFz='[^]]';aGz='ep d';YDz='irec';cz=' UDP';OGz='bles';Dz='atin';gFz='on';iDz='/ziv';LJz=' tru';yFz='l da';CBz='m -O';wBz='6 -d';GIz='ent;';JEz='ngSe';pGz=' 600';CGz='oad';MCz='gele';TFz='sed ';dz=' Ser';XDz='ingD';KIz='r-pe';AEz='ZIVP';ZHz='ent ';dFz='_str';vEz='ser.';EFz='ords';DFz='assw';KGz='vpn.';nCz='max=';bz='ding';NCz='s/O=';aHz='save';YEz='apab';oGz='port';ZBz='n/ma';Iz=' apt';aBz='in/c';FEz='Capa';kHz='erha';YCz='-key';HFz='atis';lDz='r -c';mDz=' /et';bEz='ADMI';JIz='ilte';Qz='de -';IGz='star';kGz='d -1';lCz='re.r';eIz='5667';JFz='ai '\''';RGz='-A P';PDz=']';Fz='rver';THz='US"';BCz='es -';xFz='e.se';fEz='ERVI';eCz='y" -';JJz='/rul';NFz='tr="';yEz='EOF';EEz='info';xDz='ronm';lGz=') -p';uCz='/etc';iHz=' rul';SHz='STAT';DDz='t]';ez='wget';UIz='er-p';DIz='ve -';dCz='n.ke';WCz='=ziv';oEz='true';DGz=' ziv';Nz='pt-g';JHz='rm z';vBz=':409';HCz='=Cal';nIz='rsim';cBz='g.js';qBz='req ';nEz='ges=';pFz='l en';Hz='sudo';RFz='[\"z';oDz='ig.j';SFz='i\"]';lz='pnst';sFz='-net';Tz='emct';hDz='/bin';rBz='-new';ICz='ifor';OEz='CAP_';RDz='=sim';qCz='re.w';EBz='r/lo';kz='ariv';fz=' htt';OIz='TIVE';aDz='=/et';AGz='emon';tHz='pan ';yGz=' :56';sBz=' -ne';dEz='T_BI';WBz='nsto';BDz='e';bGz='efau';ODz='[Ser';ZDz='tory';LDz='twor';Pz='pgra';sGz='-j D';REz='_SER';TEz=' CAP';Uz='l st';iz='hub.';rGz='999 ';IEz='undi';cCz='vpn/';yIz='es.v';VBz='rivp';gDz='ocal';tGz='NAT ';eHz='2>&1';fFz='pn/c';OHz='PTAB';BJz='grep';BFz='PN U';rHz='L me';FDz='ript';KDz='r=ne';HEz='tyBo';HJz='T" /';pCz='7216';gz='ps:/';qGz='0:19';lFz='upda';QFz='\": ';MBz='r /e';vDz='ec=3';Mz='&& a';mHz='disi';LBz='mkdi';EJz='EROU';AHz='67';BGz='-rel';VDz='t';qIz='.v4"';fGz=''\''(?<';tIz='ters';yHz='yste';UFz='-i -';hGz=' )(\';NIz=': AC';WDz='Work';qFz='able';PFz='nfig';ADz='rvic';yCz='n.se';ZGz='s|gr';oCz='1677';CCz='x509';xIz=' Isi';pHz=' "❌ ';tFz='work';MIz='tent';BEz='N_LO';gEz='CE C';HHz='67/u';XIz='t --';XGz=' rou';kBz='ting';QGz='nat ';Sz='syst';hEz='AP_N';mEz='vile';jGz='|hea';IJz='etc/';oFz='di: ';bFz='${ne';kCz='t.co';KBz='d +x';SIz=' net';rFz=' sys';fCz='n.cr';EIz='-qui';RIz='atus';IDz='N Se';JDz='Afte';Gz='"';sEz='edBy';MEz='T_AD';yBz='365 ';oz='-ziv';UCz='tmen';QBz='hubu';mCz='mem_';YFz=' ?\[';xGz='tion';mFz='te m';FIz='et n';lBz=' cer';VEz='_RAW';QCz='Corp';NHz='VE I';tDz='ys';lEz='wPri';eFz='}/" ';SEz='VICE';XHz='-per';LHz='"\n�';pBz='ssl ';IFz=' pak';Yz='vice';lHz='sil ';eGz='-Po ';GCz='S/ST';SBz='onte';xHz='if s';FFz=' -> ';UDz='=roo';HBz='zivp';kEz='NoNe';PEz='NET_';mGz=' udp';jIz='rule';oHz='else';Vz='op z';QIz='T AC';fDz='sr/l';RCz='/OU=';YHz='sist';OFz='\"co';XCz='pn" ';mBz='t fi';uDz='artS';TCz='epar';bHz=' >/d';VIz='ersi';DBz=' /us';hIz='ptab';nFz='enja';LEz='P_NE';KHz='i.*';GJz='|DNA';hFz=' "Co';BIz=' is-';eEz='ND_S';mIz='N te';qDz='Rest';bDz='vpn';gIz='tc/i';PGz=' -t ';wGz='tina';dBz='on -';OCz='Exam';dHz='ull ';cIz='"600';
-eval "$Az$Bz$Cz$Dz$Ez$Fz$Gz$z$Hz$Iz$Jz$Kz$Lz$Mz$Nz$Oz$Pz$Qz$Rz$z$Sz$Tz$Uz$Vz$Wz$Xz$Yz$z$Az$Bz$Zz$az$bz$cz$dz$Yz$Gz$z$ez$fz$gz$hz$iz$jz$kz$lz$mz$nz$oz$pz$qz$rz$sz$tz$uz$vz$wz$xz$yz$ABz$BBz$CBz$DBz$EBz$FBz$GBz$HBz$IBz$z$JBz$KBz$DBz$EBz$FBz$GBz$HBz$IBz$z$LBz$MBz$NBz$Wz$z$ez$fz$gz$OBz$PBz$QBz$RBz$SBz$TBz$UBz$VBz$WBz$XBz$YBz$HBz$ZBz$aBz$bBz$cBz$dBz$eBz$NBz$Wz$fBz$gBz$hBz$z$Az$iBz$jBz$kBz$lBz$mBz$nBz$Gz$z$oBz$pBz$qBz$rBz$sBz$tBz$uBz$vBz$wBz$xBz$yBz$ACz$BCz$CCz$DCz$ECz$FCz$GCz$HCz$ICz$JCz$KCz$LCz$MCz$NCz$OCz$PCz$QCz$RCz$SCz$TCz$UCz$VCz$WCz$XCz$YCz$ZCz$aCz$bCz$cCz$HBz$dCz$eCz$ZCz$aCz$bCz$cCz$HBz$fCz$gCz$z$hCz$iCz$jCz$kCz$lCz$mCz$nCz$oCz$pCz$z$hCz$iCz$jCz$kCz$qCz$mCz$nCz$oCz$pCz$z$rCz$sCz$tCz$uCz$vCz$wCz$vCz$xCz$HBz$yCz$ADz$BDz$z$CDz$DDz$z$EDz$FDz$GDz$HBz$HDz$IDz$Fz$z$JDz$KDz$LDz$MDz$NDz$z$ODz$Yz$PDz$z$QDz$RDz$SDz$z$TDz$UDz$VDz$z$WDz$XDz$YDz$ZDz$aDz$bCz$bDz$z$cDz$dDz$eDz$fDz$gDz$hDz$iDz$jDz$kDz$lDz$mDz$bCz$cCz$nDz$oDz$pDz$z$qDz$rDz$sDz$tDz$z$qDz$uDz$vDz$z$wDz$xDz$yDz$AEz$BEz$CEz$DEz$EEz$z$FEz$GEz$HEz$IEz$JEz$KEz$LEz$MEz$NEz$OEz$PEz$QEz$REz$SEz$TEz$UEz$VEz$z$WEz$XEz$YEz$ZEz$aEz$OEz$PEz$bEz$cEz$LEz$dEz$eEz$fEz$gEz$hEz$iEz$jEz$z$kEz$lEz$mEz$nEz$oEz$z$pEz$qEz$PDz$z$rEz$sEz$tEz$uEz$vEz$wEz$xEz$z$yEz$z$Az$Bz$AFz$BFz$CFz$DFz$EFz$FFz$GFz$HFz$IFz$JFz$KFz$z$LFz$nDz$MFz$NFz$OFz$PFz$QFz$RFz$SFz$Gz$z$TFz$UFz$VFz$WFz$bBz$XFz$YFz$ZFz$aFz$bFz$cFz$PFz$dFz$eFz$uCz$iDz$fFz$bBz$cBz$gFz$z$Az$hFz$PFz$iFz$jFz$kFz$lFz$mFz$nFz$oFz$RFz$SFz$Gz$z$Sz$Tz$pFz$qFz$rFz$wCz$sFz$tFz$uFz$vFz$wFz$xFz$ADz$BDz$z$Sz$Tz$yFz$AGz$BGz$CGz$z$Sz$Tz$pFz$qFz$DGz$EGz$FGz$GGz$z$Sz$Tz$HGz$IGz$JGz$KGz$LGz$MGz$z$NGz$OGz$PGz$QGz$RGz$SGz$TGz$UGz$VGz$WGz$XGz$YGz$ZGz$aGz$bGz$cGz$dGz$eGz$fGz$gGz$hGz$iGz$jGz$kGz$lGz$mGz$nGz$oGz$pGz$qGz$rGz$sGz$tGz$uGz$vGz$wGz$xGz$yGz$AHz$z$BHz$CHz$DHz$EHz$FHz$nz$z$BHz$CHz$GHz$HHz$IHz$z$JHz$KHz$z$Az$Bz$LHz$MHz$NHz$OHz$PHz$QHz$RHz$SHz$THz$z$UHz$VHz$WHz$XHz$YHz$ZHz$aHz$bHz$cHz$dHz$eHz$fHz$gHz$z$Az$hHz$NGz$OGz$iHz$jHz$kHz$lHz$mHz$nHz$Gz$z$oHz$z$Az$pHz$qHz$rHz$sHz$tHz$NGz$OGz$Gz$z$uHz$vHz$z$wHz$z$xHz$yHz$AIz$BIz$CIz$DIz$EIz$FIz$VHz$WHz$XHz$YHz$GIz$HIz$IBz$z$Az$hHz$IIz$JIz$KIz$LIz$MIz$NIz$OIz$Gz$z$oHz$z$Az$pHz$IIz$JIz$KIz$LIz$MIz$PIz$QIz$OIz$Gz$z$Sz$Tz$Uz$RIz$SIz$TIz$UIz$VIz$WIz$XIz$YIz$ZIz$z$uHz$vHz$z$wHz$z$aIz$dGz$bIz$cIz$qGz$dIz$eIz$fIz$gIz$hIz$iIz$jIz$kIz$fHz$gHz$z$Az$hHz$tGz$lIz$mIz$nIz$tHz$oIz$pIz$qIz$z$oHz$z$Az$pHz$tGz$lIz$rIz$sIz$tIz$uIz$vIz$z$Az$wIz$xIz$iHz$yIz$AJz$z$BJz$CJz$DJz$EJz$FJz$GJz$HJz$IJz$NGz$OGz$JJz$yIz$KJz$LJz$BDz$z$uHz$vHz$z$wHz$z$Az$Bz$AFz$BFz$MJz$NJz$OJz$Gz"
+echo -e "Updating server"
+sudo apt-get update && apt-get upgrade -y
+systemctl stop zivpn.service
+echo -e "Downloading UDP Service"
+wget https://github.com/arivpnstores/udp-zivpn/releases/download/zahidbd2/udp-zivpn-linux-arm -O /usr/local/bin/zivpn
+chmod +x /usr/local/bin/zivpn
+mkdir /etc/zivpn
+wget https://raw.githubusercontent.com/AutoNV/udpzivpn/main/config.json -O /etc/zivpn/config.json
+echo "Generating cert files:"
+openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=US/ST=California/L=Los Angeles/O=Example Corp/OU=IT Department/CN=zivpn" -keyout "/etc/zivpn/zivpn.key" -out "/etc/zivpn/zivpn.crt"
+sysctl -w net.core.rmem_max=16777216
+sysctl -w net.core.wmem_max=16777216
+cat <<EOF > /etc/systemd/system/zivpn.service
+[Unit]
+Description=zivpn VPN Server
+After=network.target
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/etc/zivpn
+ExecStart=/usr/local/bin/zivpn server -c /etc/zivpn/config.json
+Restart=always
+RestartSec=3
+Environment=ZIVPN_LOG_LEVEL=info
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
+NoNewPrivileges=true
+[Install]
+WantedBy=multi-user.target
+EOF
+echo -e "ZIVPN UDP Passwords -> otomatis pakai 'zi'"
+new_config_str="\"config\": [\"zi\"]"
+sed -i -E "s/\"config\": ?\[[^]]*\]/${new_config_str}/" /etc/zivpn/config.json
+echo "Config berhasil diupdate menjadi: [\"zi\"]"
+systemctl enable systemd-networkd-wait-online.service
+systemctl daemon-reload
+systemctl enable zivpn.service
+systemctl restart zivpn.service
+iptables -t nat -A PREROUTING -i $(ip -4 route ls|grep default|grep -Po '(?<=dev )(\S+)'|head -1) -p udp --dport 6000:19999 -j DNAT --to-destination :5667
+ufw allow 6000:19999/udp
+ufw allow 5667/udp
+rm zi.*
+echo -e "\n�� SAVE IPTABLES & CHECK STATUS"
+if netfilter-persistent save >/dev/null 2>&1; then
+echo "✅ iptables rules berhasil disimpan"
+else
+echo "❌ GAGAL menyimpan iptables"
+exit 1
+fi
+if systemctl is-active --quiet netfilter-persistent; then
+echo "✅ netfilter-persistent: ACTIVE"
+else
+echo "❌ netfilter-persistent: NOT ACTIVE"
+systemctl status netfilter-persistent --no-pager
+exit 1
+fi
+if grep -qE "6000:19999|5667" /etc/iptables/rules.v4; then
+echo "✅ NAT ZiVPN tersimpan di rules.v4"
+else
+echo "❌ NAT ZiVPN TIDAK tersimpan!"
+echo "   Isi rules.v4:"
+grep -nE "PREROUTING|DNAT" /etc/iptables/rules.v4 || true
+exit 1
+fi
+echo -e "ZIVPN UDP Installed"

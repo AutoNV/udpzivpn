@@ -1,4 +1,88 @@
 #!/bin/bash
-z="
-";SBz=' "==';aBz='$ISP';ZBz='P : ';XCz='wget';QBz='4 "$';Lz='CHE_';KBz='P"  ';SCz='lkan';Hz='n"';Gz='zivp';oCz='vpn-';bBz=' "Sa';MBz='ILE"';PCz='Inst';dBz=' " -';LCz=' ]];';nBz='njut';Xz='mkdi';WCz='fi';hCz='m/ar';kz='s ic';xBz='" co';GBz='P:-N';sBz='VPN ';BDz='bin/';GCz='[ ! ';Oz='xt"';iz='url ';nz='com)';iBz='P_FI';ABz='2-10';qz='rl -';LBz='> "$';xCz=' /us';NCz='n';GDz='/loc';CDz='n-ma';cz='l -4';cBz='ved:';UBz='==="';gz='.me ';Mz='DIR/';bCz='raw.';cCz='gith';fBz='_FIL';gBz='E"';CBz='{IP:';xz=' " "';Sz='ACHE';Iz='IP_F';Uz='/isp';EDz='r';TCz='."';Vz='.txt';DCz='${co';mz='zip.';DBz='-N/A';nCz='n/zi';bz='(cur';wCz='d +x';eCz='erco';OCz=' "❌ ';dCz='ubus';jBz='LE"';pCz='mana';wz='t -d';pBz='inst';RCz='bata';YCz=' -q ';FDz='/usr';ADz='cal/';Wz='"';pz='$(cu';IBz='echo';Pz='ISP_';kCz='es/u';QCz='i di';Tz='_DIR';vBz=' [Y/';rBz='i ZI';HBz='/A}';uBz='ger?';sCz='usr/';ACz='m';qBz='alas';mBz=' "La';Rz='="$C';jCz='stor';eBz=' $IP';lBz=' -rp';gCz='t.co';lz='anha';Kz='"$CA';iCz='ivpn';Yz='r -p';BBz=')';KCz='Yy]$';uz='org ';Az='set ';Nz='ip.t';YBz=' "IS';JBz=' "$I';rCz='-O /';MCz=' the';lCz='dp-z';Cz='CACH';vCz='ger';ez='ifco';IDz='in/z';hz='|| c';UCz='exit';ICz='m" =';Zz=' "$C';oBz='kan ';ECz='m:-Y';sz='info';yBz='nfir';oz='ISP=';FCz='if [';XBz='$IP"';Dz='E_DI';OBz='chmo';tBz='Mana';HDz='al/b';TBz='====';uCz='l/bi';tCz='loca';fz='nfig';BCz='conf';hBz=' $IS';rz='s ip';VBz=' "IP';WBz='  : ';PBz='d 64';HCz='"$co';kBz='read';jz='-4 -';ZCz='http';aCz='s://';tz='.io/';Jz='ILE=';yz=' -f ';Qz='FILE';fCz='nten';yCz='r/lo';VCz=' 0';FBz='${IS';dz=' -s ';Bz='-e';JDz='-man';wBz='n]: ';RBz='SP_F';EBz='}';mCz='/mai';DDz='nage';JCz='~ ^[';Fz='etc/';qCz='ger ';az='IP=$';CCz='irm=';NBz='SP" ';Ez='R="/';vz='| cu';KDz='ager';
-eval "$Az$Bz$z$Cz$Dz$Ez$Fz$Gz$Hz$z$Iz$Jz$Kz$Lz$Mz$Nz$Oz$z$Pz$Qz$Rz$Sz$Tz$Uz$Vz$Wz$z$Xz$Yz$Zz$Sz$Tz$Wz$z$az$bz$cz$dz$ez$fz$gz$hz$iz$jz$kz$lz$mz$nz$z$oz$pz$qz$rz$sz$tz$uz$vz$wz$xz$yz$ABz$BBz$z$az$CBz$DBz$EBz$z$oz$FBz$GBz$HBz$z$IBz$JBz$KBz$LBz$Iz$MBz$z$IBz$JBz$NBz$LBz$Pz$Qz$Wz$z$OBz$PBz$QBz$Iz$MBz$JBz$RBz$MBz$z$IBz$SBz$TBz$TBz$TBz$TBz$TBz$TBz$TBz$UBz$z$IBz$VBz$WBz$XBz$z$IBz$YBz$ZBz$aBz$Wz$z$IBz$bBz$cBz$Wz$z$IBz$dBz$eBz$fBz$gBz$z$IBz$dBz$hBz$iBz$jBz$z$IBz$SBz$TBz$TBz$TBz$TBz$TBz$TBz$TBz$UBz$z$IBz$z$kBz$lBz$mBz$nBz$oBz$pBz$qBz$rBz$sBz$tBz$uBz$vBz$wBz$xBz$yBz$ACz$z$BCz$CCz$DCz$yBz$ECz$EBz$z$FCz$GCz$HCz$yBz$ICz$JCz$KCz$LCz$MCz$NCz$z$IBz$OCz$PCz$qBz$QCz$RCz$SCz$TCz$z$UCz$VCz$z$WCz$z$XCz$YCz$ZCz$aCz$bCz$cCz$dCz$eCz$fCz$gCz$hCz$iCz$jCz$kCz$lCz$iCz$mCz$nCz$oCz$pCz$qCz$rCz$sCz$tCz$uCz$nCz$oCz$pCz$vCz$z$OBz$wCz$xCz$yCz$ADz$BDz$Gz$CDz$DDz$EDz$z$FDz$GDz$HDz$IDz$iCz$JDz$KDz"
+set -e
+
+C='\033[0;36m'
+G='\033[1;32m'
+W='\033[1;37m'
+Y='\033[1;33m'
+N='\033[0m'
+
+progress() {
+  local label="$1"
+  local width=28
+  local i bar filled empty
+  for ((i=0; i<=100; i++)); do
+    filled=$(( i * width / 100 ))
+    empty=$(( width - filled ))
+    bar=""
+    for ((j=0; j<filled; j++)); do bar+="█"; done
+    for ((j=0; j<empty; j++)); do bar+="░"; done
+    printf "\r${W}  %-18s ${C}[${G}%s${C}]${W} %3d%% ${N}" "$label" "$bar" "$i"
+    sleep 0.15
+  done
+  printf "\r${W}  %-18s ${C}[${G}%s${C}]${W} %3d%% ${N}\n" "$label" "$bar" "100"
+}
+
+ok() { printf "  ${G}✔  %s${N}\n" "$1"; }
+
+clear
+
+# ─── Welcome Banner ───────────────────────────────
+echo -e "${C}--------------------------------------------${N}"
+echo -e "${W}    Welcome to ZiVPN Manager Installer${N}"
+echo -e "${C}--------------------------------------------${N}"
+echo -e "${Y}    Thank you for using SC UDP ZiVPN${N}"
+echo -e "${Y}    Powered by  N E X U S D E V${N}"
+echo -e "${C}--------------------------------------------${N}"
+echo ""
+sleep 1.2
+
+# ─── Detect IP & ISP ──────────────────────────────
+echo -e "${C}--------------------------------------------${N}"
+echo -e "${W}  Detecting server information...${N}"
+echo -e "${C}--------------------------------------------${N}"
+
+CACHE_DIR="/etc/zivpn"
+IP_FILE="$CACHE_DIR/ip.txt"
+ISP_FILE="$CACHE_DIR/isp.txt"
+mkdir -p "$CACHE_DIR"
+
+progress "Checking IP"
+IP=$(curl -4 -s ifconfig.me || curl -4 -s icanhazip.com)
+IP=${IP:-N/A}
+echo "$IP" > "$IP_FILE"
+chmod 644 "$IP_FILE"
+ok "IP : $IP"
+
+progress "Checking ISP"
+ISP=$(curl -s ipinfo.io/org | cut -d " " -f 2-10)
+ISP=${ISP:-N/A}
+echo "$ISP" > "$ISP_FILE"
+chmod 644 "$ISP_FILE"
+ok "ISP : $ISP"
+
+echo ""
+sleep 0.3
+
+# ─── Install ──────────────────────────────────────
+echo -e "${C}--------------------------------------------${N}"
+echo -e "${W}  Installing ZiVPN Manager...${N}"
+echo -e "${C}--------------------------------------------${N}"
+
+progress "Downloading"
+wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/zivpn-manager \
+  -O /usr/local/bin/zivpn-manager
+chmod +x /usr/local/bin/zivpn-manager
+ok "zivpn-manager installed"
+
+echo ""
+sleep 0.4
+
+# ─── Done ─────────────────────────────────────────
+echo -e "${C}--------------------------------------------${N}"
+echo -e "${G}  ✔  Installation completed successfully!${N}"
+echo -e "${C}--------------------------------------------${N}"
+echo ""
+sleep 1
+
+/usr/local/bin/zivpn-manager

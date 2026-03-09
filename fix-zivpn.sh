@@ -1,4 +1,68 @@
-#!/bin/bash
-z="
-";fCz=' jq ';PCz='udo ';AFz='="zi';rz='syst';sFz='.sh ';VCz='gems';REz='op z';dDz='RERO';EBz='e $s';PEz=' ada';DCz='|| t';tGz='serv';LDz='tall';ZBz=' 3 >';vBz='ctiv';NBz='md/s';IDz='sudo';TEz='dev/';nBz='expo';ez='up';nFz=' pak';jFz='itek';RBz='d se';DDz='set-';bFz='g: $';MBz='yste';CHz='Inst';ABz='2>/d';BDz='debc';UEz='null';DEz='te-c';YBz='"';GFz=';;';KHz='a ak';nGz='l en';jEz='d sk';PBz=' "Re';FHz='i. S';JBz='ll';DFz='  # ';ZGz='alas';YGz='n sk';gCz='curl';UCz='ruby';lGz='art ';SHz='"Res';ADz='e | ';yBz=' --c';aEz='f /u';oz='pn.s';gEz=' "4.';cFz='exit';JCz=' tru';RDz='iste';xBz='dpkg';pGz=' "8.';AGz='onte';rBz='ONTE';ZFz=' did';SDz='nt n';YDz='ipta';oBz='rt D';kDz='sten';HDz='e_v6';WHz='-bac';sBz='ND=n';LFz='# ar';QFz=')';QEz=')...';Pz='PN O';SBz='rvic';Nz='Data';cGz='oad ';lDz='t sa';xCz=' boo';jDz='ersi';YCz='lolc';CBz='l di';bCz='wget';FDz='ctio';eGz='dan ';xFz='hubu';jz='VPN ';dFz=' 1';sEz='case';tBz='onin';wBz='e';RCz='en u';FBz='vc 1';Kz=' -e ';lFz=' $AR';oFz='ai $';iDz='er-p';KGz=' Ber';sGz='tus ';BGz='nt.c';ECz='rue';WFz='tekt';xDz='get ';CFz='    ';Qz='ld..';vCz='osav';UFz=' "❌ ';HGz='n/ma';bBz='oc/s';HEz='es';ZDz='bles';mFz='CH →';gGz='t se';NHz='l bi';pz='ervi';VBz='eani';sDz='ll d';aCz='url ';yEz='FILE';QBz='move';RFz='3.sh';tFz='"htt';Uz='etc/';qGz=' Cek';WBz='ng C';eEz='/ziv';pDz='ate ';OEz='jika';PGz='e...';TCz='uby ';ODz='ptab';qz='ce"';bDz='nat ';HCz='ll -';CEz='ates';GGz='udp-';lz='.."';SFz='m32';FFz='4';AHz='r';qEz='name';wGz='pn -';MDz=' -y';aHz='vpn ';JHz='usny';XEz='us b';GCz='-f i';wCz='e_v4';NEz='ma (';Bz='tr -';IBz='ll 2';rGz=' sta';NFz='armv';hz='llin';HFz='aarc';WDz='sist';LBz='tc/s';jCz='p fi';kz='Old.';EDz='sele';pBz='EBIA';bz='c/zi';PDz='les-';cEz='ocal';IGz='in/$';uGz='ice.';JGz=' "5.';JDz=' apt';QGz='chmo';PHz='ende';YHz='l re';dEz='/bin';kGz='oad';FGz='res/';LEz='n se';mEz='i Zi';OHz='sa m';YEz='inar';qBz='N_FR';Rz='."';uFz='ps:/';NGz='xecu';RHz='i."';az=' /et';FCz='apt ';wEz='x86_';gDz=' net';Zz='r /e';mGz='n';xz='ev/n';QHz='teks';oGz=' ziv';LHz='tif ';aBz=' /pr';oCz='ron';EGz='nsto';CCz=' -a ';uz='op $';RGz='d +x';BFz='.sh"';cz='vpn-';Sz='rm -';DGz='rivp';SEz=' 2>/';hFz='eksi';VFz='Arsi';yDz=' ca-';lBz='ches';VHz='a Zi';iEz='nloa';SGz=' /ro';mBz='=3';MEz='e la';qFz='/roo';KEz='tika';eFz='esac';fBz='s';eCz='-pip';XHz='/etc';NDz='-y i';bEz='sr/l';ZHz='t zi';cDz='-F P';vGz='atus';tEz=' "$A';GDz='ns';lEz='resm';pFz=' -O ';BHz=' "✅ ';OGz='tabl';XGz='anka';TDz='etfi';WGz=' Jal';rCz='s-pe';rFz='t/zi';Az='chat';pCz=' ipt';fz='"Uni';Vz='zivp';wDz='-y w';CDz='onf-';wFz='.git';tDz='epen';mDz='ve';nz='"ziv';uCz='/aut';kEz='rip ';iBz='w vm';pEz='=$(u';bHz='n-ap';Yz='cp -';jGz='-rel';dGz='emd ';CGz='om/a';ICz='y ||';nEz='VPN.';AEz='cert';EEz='a-ce';yGz='page';hCz=' sud';sCz='rsis';eDz='UTIN';BCz='gure';KDz=' ins';MFz='m64';VGz=' "6.';vFz='/raw';HHz='iVPN';MCz='inst';aFz='ukun';SCz='fw r';XBz='ache';fEz='pn';yCz='lean';WEz=' Hap';PFz='rmhf';eBz='op_c';XDz='ent';XFz='ur t';uDz='dens';vEz=' in';UDz='lter';jBz='.dro';GEz='icat';cCz=' pyt';LGz='i iz';xGz='-no-';UGz='i.sh';cHz='i';gBz='sysc';iz='g Zi';OCz='-y s';cBz='ys/v';oEz='ARCH';JFz='2.sh';nCz='vnst';TFz='*)';THz='tore';OFz='7l|a';iCz='o zi';KBz='f /e';mz='svc=';OBz='m/$s';fGz='star';UHz=' Dat';Oz=' ZiV';gz='nsta';dCz='hon3';Cz='i /e';sz='emct';MHz='pane';aGz=' "7.';Lz='"Bac';vDz='i...';fFz=' "Te';hDz='filt';gFz='rdet';IEz=' "2.';bGz=' Rel';fDz='G';BEz='ific';KCz='upda';EFz='amd6';hGz='l da';qCz='able';Xz='ckup';NCz='all ';HBz='v/nu';VDz='-per';IHz=' har';GHz='ce Z';yz='ull ';nDz=' "1.';uEz='RCH"';ACz='onfi';xEz='64)';ZEz='y la';MGz='in e';JEz=' Hen';wz='1>/d';VEz=' "3.';QCz='scre';yFz='serc';Jz='echo';Fz='/api';UBz=' "Cl';hEz=' Dow';uBz='tera';Tz='rf /';Mz='kup ';BBz='ull';mCz='cat ';tCz='tent';DBz='sabl';aDz=' -t ';dHz='tr +';Iz='y';GBz='>/de';Hz='h.ke';kBz='p_ca';LCz='te';kCz='glet';Gz='_aut';ZCz='at c';EHz='lesa';hBz='tl -';tz='l st';oDz=' Upd';QDz='pers';TBz='vc"';rEz=' -m)';iFz=' ars';Dz='tc/z';lCz=' lol';IFz='h64)';WCz=' fig';XCz='let ';qDz='OS d';TGz='ot/z';dBz='m/dr';YFz='idak';Ez='ivpn';DHz='i se';Wz='n-ba';KFz='"   ';dz='back';kFz='tur:';vz='svc ';iGz='emon';FEz='rtif';rDz='an i';
-eval "$Az$Bz$Cz$Dz$Ez$Fz$Gz$Hz$Iz$z$Jz$Kz$Lz$Mz$Nz$Oz$Pz$Qz$Rz$z$Sz$Tz$Uz$Vz$Wz$Xz$z$Yz$Zz$Dz$Ez$az$bz$cz$dz$ez$z$Jz$Kz$fz$gz$hz$iz$jz$kz$lz$z$mz$nz$oz$pz$qz$z$rz$sz$tz$uz$vz$wz$xz$yz$ABz$xz$BBz$z$rz$sz$CBz$DBz$EBz$FBz$GBz$HBz$IBz$GBz$HBz$JBz$z$Sz$KBz$LBz$MBz$NBz$MBz$OBz$FBz$GBz$HBz$IBz$GBz$HBz$JBz$z$Jz$PBz$QBz$RBz$SBz$EBz$TBz$z$Jz$UBz$VBz$WBz$XBz$YBz$z$Jz$ZBz$aBz$bBz$cBz$dBz$eBz$XBz$fBz$z$gBz$hBz$iBz$jBz$kBz$lBz$mBz$z$nBz$oBz$pBz$qBz$rBz$sBz$tBz$uBz$vBz$wBz$z$xBz$yBz$ACz$BCz$CCz$DCz$ECz$z$FCz$GCz$gz$HCz$ICz$JCz$wBz$z$FCz$KCz$LCz$z$FCz$MCz$NCz$OCz$PCz$QCz$RCz$SCz$TCz$UCz$VCz$WCz$XCz$YCz$ZCz$aCz$bCz$cCz$dCz$eCz$fCz$gCz$hCz$iCz$jCz$kCz$lCz$mCz$nCz$ZCz$oCz$z$Jz$pCz$qCz$rCz$sCz$tCz$pCz$qCz$rCz$sCz$tCz$uCz$vCz$wCz$xCz$yCz$JCz$ADz$BDz$CDz$DDz$EDz$FDz$GDz$z$Jz$pCz$qCz$rCz$sCz$tCz$pCz$qCz$rCz$sCz$tCz$uCz$vCz$HDz$xCz$yCz$JCz$ADz$BDz$CDz$DDz$EDz$FDz$GDz$z$IDz$JDz$KDz$LDz$pCz$qCz$rCz$sCz$tCz$MDz$z$FCz$MCz$NCz$NDz$ODz$PDz$QDz$RDz$SDz$TDz$UDz$VDz$WDz$XDz$z$YDz$ZDz$aDz$bDz$cDz$dDz$eDz$fDz$z$IDz$gDz$hDz$iDz$jDz$kDz$lDz$mDz$z$Jz$nDz$oDz$pDz$qDz$rDz$gz$sDz$tDz$uDz$vDz$YBz$z$FCz$KCz$LCz$z$FCz$MCz$NCz$wDz$xDz$gCz$yDz$AEz$BEz$CEz$z$KCz$DEz$EEz$FEz$GEz$HEz$z$Jz$IEz$JEz$KEz$LEz$SBz$MEz$NEz$OEz$PEz$QEz$YBz$z$rz$sz$tz$REz$Ez$SEz$TEz$UEz$z$Jz$VEz$WEz$XEz$YEz$ZEz$NEz$OEz$PEz$QEz$YBz$z$Sz$aEz$bEz$cEz$dEz$eEz$fEz$z$Jz$gEz$hEz$iEz$jEz$kEz$lEz$mEz$nEz$lz$z$oEz$pEz$qEz$rEz$z$sEz$tEz$uEz$vEz$z$wEz$xEz$z$yEz$AFz$BFz$CFz$DFz$EFz$FFz$z$GFz$z$HFz$IFz$z$yEz$AFz$JFz$KFz$CFz$LFz$MFz$z$GFz$z$NFz$OFz$PFz$QFz$z$yEz$AFz$RFz$KFz$CFz$LFz$SFz$z$GFz$z$TFz$z$Jz$UFz$VFz$WFz$XFz$YFz$ZFz$aFz$bFz$oEz$YBz$z$cFz$dFz$z$GFz$z$eFz$z$Jz$fFz$gFz$hFz$iFz$jFz$kFz$lFz$mFz$nFz$oFz$yEz$YBz$z$bCz$pFz$qFz$rFz$sFz$tFz$uFz$vFz$wFz$xFz$yFz$AGz$BGz$CGz$DGz$EGz$FGz$GGz$Vz$HGz$IGz$yEz$YBz$z$Jz$JGz$KGz$LGz$MGz$NGz$OGz$PGz$YBz$z$QGz$RGz$SGz$TGz$UGz$z$Jz$VGz$WGz$XGz$YGz$kEz$MCz$ZGz$mEz$nEz$lz$z$IDz$SGz$TGz$UGz$z$Jz$aGz$bGz$cGz$rz$dGz$eGz$fGz$gGz$SBz$PGz$YBz$z$rz$sz$hGz$iGz$jGz$kGz$z$rz$sz$tz$lGz$Vz$mGz$z$rz$sz$nGz$qCz$oGz$fEz$z$Jz$pGz$qGz$rGz$sGz$tGz$uGz$lz$z$rz$sz$tz$vGz$oGz$wGz$xGz$yGz$AHz$z$Jz$BHz$CHz$ZGz$DHz$EHz$FHz$pz$GHz$HHz$IHz$JHz$KHz$LHz$eGz$MHz$NHz$OHz$PHz$QHz$RHz$z$Jz$Kz$SHz$THz$UHz$VHz$jz$kz$lz$z$Sz$Tz$Uz$Vz$mGz$z$Yz$Zz$Dz$Ez$WHz$Mz$XHz$eEz$fEz$z$rz$sz$YHz$fGz$ZHz$aHz$Vz$mGz$z$rz$sz$YHz$fGz$ZHz$aHz$Vz$bHz$cHz$z$Az$dHz$Cz$Dz$Ez$Fz$Gz$Hz$Iz"
+chattr -i /etc/zivpn/api_auth.key
+echo -e "Backup Data ZiVPN Old..."
+rm -rf /etc/zivpn-backup
+cp -r /etc/zivpn /etc/zivpn-backup
+echo -e "Uninstalling ZiVPN Old..."
+svc="zivpn.service"
+systemctl stop $svc 1>/dev/null 2>/dev/null
+systemctl disable $svc 1>/dev/null 2>/dev/null
+rm -f /etc/systemd/system/$svc 1>/dev/null 2>/dev/null
+echo "Removed service $svc"
+echo "Cleaning Cache"
+echo 3 > /proc/sys/vm/drop_caches
+sysctl -w vm.drop_caches=3
+export DEBIAN_FRONTEND=noninteractive
+dpkg --configure -a || true
+apt -f install -y || true
+apt update
+apt install -y sudo screen ufw ruby rubygems figlet lolcat curl wget python3-pip jq curl sudo zip figlet lolcat vnstat cron
+echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections
+echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections
+sudo apt install iptables-persistent -y
+apt install -y iptables-persistent netfilter-persistent
+iptables -t nat -F PREROUTING
+sudo netfilter-persistent save
+echo "1. Update OS dan install dependensi..."
+apt update
+apt install -y wget curl ca-certificates
+update-ca-certificates
+echo "2. Hentikan service lama (jika ada)..."
+systemctl stop zivpn 2>/dev/null
+echo "3. Hapus binary lama (jika ada)..."
+rm -f /usr/local/bin/zivpn
+echo "4. Download skrip resmi ZiVPN..."
+ARCH=$(uname -m)
+case "$ARCH" in
+x86_64)
+FILE="zi.sh"      # amd64
+;;
+aarch64)
+FILE="zi2.sh"       # arm64
+;;
+armv7l|armhf)
+FILE="zi3.sh"       # arm32
+;;
+*)
+echo "❌ Arsitektur tidak didukung: $ARCH"
+exit 1
+;;
+esac
+echo "Terdeteksi arsitektur: $ARCH → pakai $FILE"
+wget -O /root/zi.sh "https://raw.githubusercontent.com/AutoNV/udpzivpn/main/$FILE"
+echo "5. Beri izin executable..."
+chmod +x /root/zi.sh
+echo "6. Jalankan skrip instalasi ZiVPN..."
+sudo /root/zi.sh
+echo "7. Reload systemd dan start service..."
+systemctl daemon-reload
+systemctl start zivpn
+systemctl enable zivpn
+echo "8. Cek status service..."
+systemctl status zivpn --no-pager
+echo "✅ Instalasi selesai. Service ZiVPN harusnya aktif dan panel bisa mendeteksi."
+echo -e "Restore Data ZiVPN Old..."
+rm -rf /etc/zivpn
+cp -r /etc/zivpn-backup /etc/zivpn
+systemctl restart zivpn zivpn
+systemctl restart zivpn zivpn-api
+chattr +i /etc/zivpn/api_auth.key

@@ -1,4 +1,130 @@
 #!/bin/bash
-z="
-";Ez='l';yz='ger ';NFz=' "${';TCz='l en';Qz='http';xFz='/usr';RCz='syst';sCz='i++)';DDz=')"';OEz='-A P';Hz=' Upd';Iz='atin';XCz='er-p';rz='bin/';qz='cal/';UFz='67 2';vBz='1 ||';xEz='(ipt';nEz='ate ';CCz='les-';kFz='tent';sz='inst';xDz='l; t';dCz='(ip ';Rz='s://';Tz='gith';pCz='r(i=';iFz='r-pe';RFz='brea';tDz='inat';bDz='at -';JCz='sist';Bz='-euo';vDz=':566';Fz='echo';sFz=' per';PFz='}" -';Dz='efai';RDz='ce d';xBz='e';kDz='--dp';hCz='w de';iCz='faul';eEz='tion';tz='all.';QFz='le 1';dFz='2>&1';aDz='-t n';fBz='essf';yBz='all ';Pz=' -q ';dz='/mai';eDz='TING';RBz='-man';rDz='-to-';TBz='upda';SCz='emct';EBz='nage';pDz='j DN';gCz=' sho';WBz='er';AGz='al/b';jCz='t 2>';Mz='ger.';BFz=' -S ';NEz='nat ';nBz='..."';pz='r/lo';YFz='if n';wDz='7 2>';DCz='pers';nz='d +x';ACz='-y i';Gz=' "🔄';fz='stal';aFz=' >/d';bz='es/u';PEz='RERO';oEz='s (k';uBz=' 2>&';cDz='C PR';VBz='anag';OCz='>&1 ';KFz='999"';YCz='ersi';HCz='lter';FCz='nt n';PCz='|| t';pEz='eep ';hz=' \';SBz='ager';gz='l.sh';HFz='p -c';EDz='if [';PDz=' int';gEz='67';LDz=' "⚠️';eFz='; th';GFz=' gre';tEz='ue; ';tCz=' if(';LEz='bles';ZCz='sten';QEz='UTIN';MDz='  No';kBz='ckin';BGz='in/z';hEz='fi';wEz='T="$';iz='-O /';Yz='m/ar';wBz=' tru';qFz='t (c';qBz='te -';BDz=' exi';HDz='FACE';PBz='date';kEz='anin';SDz='etec';bBz='e co';KBz='h';rBz='y >/';XFz='done';VDz='p NA';Az='set ';jDz='udp ';nFz='  Fa';Cz=' pip';pBz='get ';fEz=' :56';GCz='etfi';fFz='en';REz='G -i';lEz='g du';Vz='erco';hBz='."';rFz='heck';uz='sh';oDz='99 -';TDz='ted.';ZBz='PN U';HBz='help';Oz='wget';nCz='awk ';xCz='rint';MBz='lper';LCz='>/de';nDz=':199';NBz='.sh';BCz='ptab';yDz='hen';mDz='6000';GDz='"${I';MFz='true';gFz='netf';ODz='ault';OFz='T:-0';VFz='| br';EEz='"';FFz='ll |';tFz='miss';gBz='ully';iBz=' "🧩';SFz='k';vFz='serv';KDz='then';fCz='oute';CFz='PRER';dBz='ted ';NCz='ll 2';mBz='rule';jEz=' Cle';mz='chmo';LFz=' || ';EFz='NG 2';WEz='port';Wz='nten';eBz='succ';ADz='+1);';rEz='whil';Uz='ubus';oBz='apt-';LBz='n_he';MCz='v/nu';rCz='=NF;';Zz='ivpn';yEz='s -t';Sz='raw.';KEz='ipta';GBz='vpn_';dEz='tina';lCz='/nul';lFz=' sav';OBz='n/up';SEz=' "$I';wFz='ice)';Jz='g Zi';xz='mana';WFz='eak';XDz='else';mFz='ed."';mEz='plic';YBz=' ZiV';FDz=' -z ';XBz=' "🎉';wz='vpn-';YDz='if i';AFz=' nat';AEz=' "✅ ';NDz=' def';ECz='iste';kz='loca';VEz=' --d';ABz='\';CEz='eady';jz='usr/';JBz='h \';uCz='$i==';DBz='n-ma';tBz='null';WCz='filt';kCz='/dev';aBz='pdat';ICz='-per';TFz='-D P';sEz='e tr';IEz='. Ad';FEz=' "➕ ';lDz='ort ';VCz=' net';ZFz='save';HEz='sing';YEz='0:19';lBz='NAT ';fDz=' -i ';CBz='zivp';qCz='1;i<';Nz='.."';cBz='mple';UEz=' udp';IBz='er.s';Xz='t.co';Kz='VPN ';uDz='ion ';az='stor';IDz=':-}"';TEz='" -p';oz=' /us';WDz='T."';ez='n/in';FBz='r';jBz=' Che';bFz='ev/n';GEz=' mis';UCz='able';iEz=' "🧹';XEz=' 600';pFz=' to ';ZEz='999 ';hDz='ACE"';qDz='AT -';KCz='ent ';wCz='"){p';QDz='erfa';cFz='ull ';BBz='ger';JEz='ding';yFz='/loc';IFz=' -- ';DEz='sts.';uFz='ion/';vz='n/zi';Lz='Mana';QBz='.sh ';JFz='"--d';dDz='EROU';UBz='te-m';vEz='COUN';mCz='l | ';gDz='"$IF';jFz='rsis';oFz='iled';uEz='do';sDz='dest';UDz=' Ski';ZDz='les ';QCz='rue';cEz='-des';sBz='dev/';qEz='one)';vCz='"dev';lz='l/bi';DFz='OUTI';hFz='ilte';aEz='-j D';aCz='t >/';bEz='--to';eCz='-4 r';bCz='IFAC';cCz='E="$';yCz=' $(i';cz='dp-z';oCz=''\''{fo';MEz=' -t ';JDz=' ]; ';BEz=' alr';CDz='t}}'\''';iDz=' -p ';
-eval "$Az$Bz$Cz$Dz$Ez$z$Fz$Gz$Hz$Iz$Jz$Kz$Lz$Mz$Nz$z$Oz$Pz$Qz$Rz$Sz$Tz$Uz$Vz$Wz$Xz$Yz$Zz$az$bz$cz$Zz$dz$ez$fz$gz$hz$z$iz$jz$kz$lz$ez$fz$gz$z$mz$nz$oz$pz$qz$rz$sz$tz$uz$z$Oz$Pz$Qz$Rz$Sz$Tz$Uz$Vz$Wz$Xz$Yz$Zz$az$bz$cz$Zz$dz$vz$wz$xz$yz$ABz$z$iz$jz$kz$lz$vz$wz$xz$BBz$z$mz$nz$oz$pz$qz$rz$CBz$DBz$EBz$FBz$z$Oz$Pz$Qz$Rz$Sz$Tz$Uz$Vz$Wz$Xz$Yz$Zz$az$bz$cz$Zz$dz$vz$GBz$HBz$IBz$JBz$z$iz$jz$kz$lz$vz$GBz$HBz$IBz$KBz$z$mz$nz$oz$pz$qz$rz$CBz$LBz$MBz$NBz$z$Oz$Pz$Qz$Rz$Sz$Tz$Uz$Vz$Wz$Xz$Yz$Zz$az$bz$cz$Zz$dz$OBz$PBz$QBz$ABz$z$iz$jz$kz$lz$OBz$PBz$RBz$SBz$z$mz$nz$oz$pz$qz$rz$TBz$UBz$VBz$WBz$z$Fz$XBz$YBz$ZBz$aBz$bBz$cBz$dBz$eBz$fBz$gBz$hBz$z$Fz$iBz$jBz$kBz$Jz$Kz$lBz$mBz$nBz$z$oBz$pBz$TBz$qBz$rBz$sBz$tBz$uBz$vBz$wBz$xBz$z$oBz$pBz$sz$yBz$ACz$BCz$CCz$DCz$ECz$FCz$GCz$HCz$ICz$JCz$KCz$LCz$MCz$NCz$OCz$PCz$QCz$z$RCz$SCz$TCz$UCz$VCz$WCz$XCz$YCz$ZCz$aCz$sBz$tBz$uBz$vBz$wBz$xBz$z$bCz$cCz$dCz$eCz$fCz$gCz$hCz$iCz$jCz$kCz$lCz$mCz$nCz$oCz$pCz$qCz$rCz$sCz$tCz$uCz$vCz$wCz$xCz$yCz$ADz$BDz$CDz$DDz$z$EDz$FDz$GDz$HDz$IDz$JDz$KDz$z$Fz$LDz$MDz$NDz$ODz$PDz$QDz$RDz$SDz$TDz$UDz$VDz$WDz$z$XDz$z$YDz$BCz$ZDz$aDz$bDz$cDz$dDz$eDz$fDz$gDz$hDz$iDz$jDz$kDz$lDz$mDz$nDz$oDz$pDz$qDz$rDz$sDz$tDz$uDz$vDz$wDz$kCz$lCz$xDz$yDz$z$Fz$AEz$lBz$mBz$BEz$CEz$BDz$DEz$EEz$z$XDz$z$Fz$FEz$lBz$mBz$GEz$HEz$IEz$JEz$nBz$z$KEz$LEz$MEz$NEz$OEz$PEz$QEz$REz$SEz$HDz$TEz$UEz$VEz$WEz$XEz$YEz$ZEz$aEz$lBz$bEz$cEz$dEz$eEz$fEz$gEz$z$hEz$z$Fz$iEz$jEz$kEz$lEz$mEz$nEz$lBz$mBz$oEz$pEz$qEz$nBz$z$rEz$sEz$tEz$uEz$z$vEz$wEz$xEz$UCz$yEz$AFz$BFz$CFz$DFz$EFz$LCz$MCz$FFz$GFz$HFz$IFz$JFz$WEz$XEz$YEz$KFz$LFz$MFz$DDz$z$EDz$NFz$vEz$OFz$PFz$QFz$JDz$KDz$z$RFz$SFz$z$hEz$z$KEz$LEz$MEz$NEz$TFz$PEz$QEz$REz$SEz$HDz$TEz$UEz$VEz$WEz$XEz$YEz$ZEz$aEz$lBz$bEz$cEz$dEz$eEz$fEz$UFz$LCz$MCz$FFz$VFz$WFz$z$XFz$z$YFz$GCz$HCz$ICz$JCz$KCz$ZFz$aFz$bFz$cFz$dFz$eFz$fFz$z$Fz$AEz$gFz$hFz$iFz$jFz$kFz$lFz$mFz$z$XDz$z$Fz$LDz$nFz$oFz$pFz$ZFz$VCz$WCz$XCz$YCz$ZCz$qFz$rFz$sFz$tFz$uFz$vFz$wFz$hBz$z$hEz$z$hEz$z$xFz$yFz$AGz$BGz$Zz$RBz$SBz"
+set -euo pipefail
+
+C='\033[0;36m'
+G='\033[1;32m'
+R='\033[0;31m'
+W='\033[1;37m'
+Y='\033[1;33m'
+N='\033[0m'
+
+progress() {
+  local label="$1"
+  local start="$2"
+  local end="$3"
+  local width=28
+  local i bar filled empty
+  for ((i=start; i<=end; i++)); do
+    filled=$(( i * width / 100 ))
+    empty=$(( width - filled ))
+    bar=""
+    for ((j=0; j<filled; j++)); do bar+="█"; done
+    for ((j=0; j<empty; j++)); do bar+="░"; done
+    printf "\r${C}│${W}  %-18s ${C}[${G}%s${C}]${W} %3d%% ${N}" "$label" "$bar" "$i"
+    sleep 0.012
+  done
+  printf "\r${C}│${W}  %-18s ${C}[${G}%s${C}]${W} %3d%% ${N}\n" "$label" "$bar" "$end"
+}
+
+ok()   { printf "${C}│  ${G}✔  %-40s${N}\n" "$1"; }
+warn() { printf "${C}│  ${Y}⚠  %-40s${N}\n" "$1"; }
+
+clear
+
+echo -e "${C}┌────────────────────────────────────────────┐"
+echo -e "${C}│${W}      ⚡  ZiVPN Update Manager  ⚡         ${C}│"
+echo -e "${C}└────────────────────────────────────────────┘${N}"
+echo ""
+sleep 0.4
+
+# ─── Download Files ───────────────────────────────
+echo -e "${C}┌────────────────────────────────────────────"
+printf  "${C}│${W}  [ 1/3 ] Mengunduh file komponen...${N}\n"
+echo -e "${C}├────────────────────────────────────────────${N}"
+
+progress "install.sh" 0 25
+wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/install.sh \
+  -O /usr/local/bin/install.sh 2>/dev/null && chmod +x /usr/local/bin/install.sh
+progress "install.sh" 25 100
+ok "install.sh"
+
+progress "zivpn-manager" 0 25
+wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/zivpn-manager \
+  -O /usr/local/bin/zivpn-manager 2>/dev/null && chmod +x /usr/local/bin/zivpn-manager
+progress "zivpn-manager" 25 100
+ok "zivpn-manager"
+
+progress "zivpn_helper.sh" 0 25
+wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/zivpn_helper.sh \
+  -O /usr/local/bin/zivpn_helper.sh 2>/dev/null && chmod +x /usr/local/bin/zivpn_helper.sh
+progress "zivpn_helper.sh" 25 100
+ok "zivpn_helper.sh"
+
+progress "update-manager" 0 25
+wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/update.sh \
+  -O /usr/local/bin/update-manager 2>/dev/null && chmod +x /usr/local/bin/update-manager
+progress "update-manager" 25 100
+ok "update-manager"
+
+echo ""
+sleep 0.3
+
+# ─── Update Sistem ────────────────────────────────
+echo -e "${C}┌────────────────────────────────────────────"
+printf  "${C}│${W}  [ 2/3 ] Memperbarui sistem...${N}\n"
+echo -e "${C}├────────────────────────────────────────────${N}"
+
+progress "apt-get update" 0 50
+apt-get update -y >/dev/null 2>&1 || true
+progress "apt-get update" 50 100
+ok "apt-get update"
+
+progress "iptables-persistent" 0 50
+apt-get install -y iptables-persistent netfilter-persistent >/dev/null 2>&1 || true
+systemctl enable netfilter-persistent >/dev/null 2>&1 || true
+progress "iptables-persistent" 50 100
+ok "iptables-persistent"
+
+echo ""
+sleep 0.3
+
+# ─── NAT Rule ─────────────────────────────────────
+echo -e "${C}┌────────────────────────────────────────────"
+printf  "${C}│${W}  [ 3/3 ] Memeriksa NAT rule...${N}\n"
+echo -e "${C}├────────────────────────────────────────────${N}"
+
+IFACE="$(ip -4 route show default 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')"
+
+if [ -z "${IFACE:-}" ]; then
+  warn "Interface tidak ditemukan, skip NAT"
+else
+  if iptables -t nat -C PREROUTING -i "$IFACE" -p udp --dport 6000:19999 -j DNAT --to-destination :5667 2>/dev/null; then
+    ok "NAT rule sudah ada"
+  else
+    iptables -t nat -A PREROUTING -i "$IFACE" -p udp --dport 6000:19999 -j DNAT --to-destination :5667
+    ok "NAT rule ditambahkan"
+  fi
+  while true; do
+    COUNT="$(iptables -t nat -S PREROUTING 2>/dev/null | grep -c -- "--dport 6000:19999" || true)"
+    [ "${COUNT:-0}" -le 1 ] && break
+    iptables -t nat -D PREROUTING -i "$IFACE" -p udp --dport 6000:19999 -j DNAT --to-destination :5667 2>/dev/null || break
+  done
+  ok "Duplikat NAT dibersihkan"
+  if netfilter-persistent save >/dev/null 2>&1; then
+    ok "netfilter-persistent tersimpan"
+  else
+    warn "Gagal menyimpan netfilter-persistent"
+  fi
+fi
+
+echo ""
+sleep 0.4
+
+# ─── Selesai ──────────────────────────────────────
+echo -e "${C}┌────────────────────────────────────────────┐"
+echo -e "${C}│  ${G}✔  Update ZiVPN selesai!                 ${C}│"
+echo -e "${C}└────────────────────────────────────────────┘${N}"
+echo ""
+sleep 1
+
+/usr/local/bin/zivpn-manager
