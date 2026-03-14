@@ -777,25 +777,51 @@ function _iplimit_show_status() {
     echo "Tidak ada akun."
     read -p "Enter untuk kembali..."; return
   fi
-  printf "${W}%-20s │ %-6s │ %-8s │ %s${N}\n" "User" "Limit" "Status" "Lock Sisa"
-  echo "──────────────────────────────────────────────────"
+  printf "${W}%-20s │ %-6s │ %-10s │ %-6s │ %s${N}\n" "User" "Limit" "Status" "IP On" "Lock Sisa"
+  echo "────────────────────────────────────────────────────────────"
   while IFS=':' read -r password expiry_date; do
     [[ -z "$password" ]] && continue
     local limit; limit=$(_ip_limit_get_user "$password")
-    local status="${G}OK${N}"
-    local sisa="-"
+
+    # Hitung IP aktif dari log
+    local ip_list="" active_count=0
+    local log_paths=("/var/log/zivpn.log" "/etc/zivpn/logs/access.log" "/var/log/zivpn_access.log")
+    for lp in "${log_paths[@]}"; do
+      if [ -f "$lp" ]; then
+        ip_list=$(grep -i "$password" "$lp" 2>/dev/null \
+          | grep -iE "connect|login|auth|session" \
+          | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' \
+          | sort -u)
+        break
+      fi
+    done
+    [ -n "$ip_list" ] && active_count=$(echo "$ip_list" | wc -l)
+
+    # Tentukan status
+    local status_str sisa="-"
     if _ip_limit_is_locked "$password"; then
-      status="${R}LOCKED${N}"
+      status_str="${R}LOCKED${N}"
       local lock_time; lock_time=$(cat "${IP_LOCK_DIR}/${password}.lock")
       local elapsed=$(( $(date +%s) - lock_time ))
       local remaining=$(( 900 - elapsed ))
       [ "$remaining" -lt 0 ] && remaining=0
       sisa="${remaining}s"
+    elif [ "$active_count" -gt 0 ]; then
+      if [ "$active_count" -gt "$limit" ]; then
+        status_str="${Y}OVER${N}"
+      else
+        status_str="${G}ON${N}"
+      fi
+    else
+      status_str="${W}OFF${N}"
     fi
+
     printf "%-20s │ %-6s │ " "$password" "$limit"
-    echo -ne "$status"
-    printf " │ %s\n" "$sisa"
+    echo -ne "$status_str"
+    printf "       │ %-6s │ %s\n" "$active_count" "$sisa"
   done < "$db_file"
+  echo ""
+  echo -e "${G}ON${N}=Login aktif  ${W}OFF${N}=Belum login  ${Y}OVER${N}=Melebihi limit  ${R}LOCKED${N}=Dikunci"
   echo ""
   read -p "Tekan Enter untuk kembali..."
 }
