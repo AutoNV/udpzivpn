@@ -167,6 +167,9 @@ expiry_date=$(date -d "+$days days" +%s | tr -d "\n\r")
 echo "${password}:${expiry_date}" >> "$db_file"
 jq --arg pass "$password" '.auth.config += [$pass]' /etc/zivpn/config.json > /etc/zivpn/config.json.tmp && mv /etc/zivpn/config.json.tmp /etc/zivpn/config.json
 if [ $? -eq 0 ]; then
+# Auto set IP limit = 1 untuk akun baru
+_ip_limit_set_user "$password" "1"
+mkdir -p "$IP_LOCK_DIR" "$IP_WARN_DIR"
 restart_zivpn
 local EXPIRE_FORMATTED
 EXPIRE_FORMATTED=$(date -d "@$expiry_date" +"%d %B %Y %H:%M")
@@ -187,11 +190,12 @@ echo "DATA:pass=$password"
 echo "DATA:expire=$EXPIRE_FORMATTED"
 local message=$(cat <<EOF
 CREATE AKUN ZIVPN
-Host   : $host
-IP     : $ip
-ISP    : $isp
-Pass   : $password
-Expire : $EXPIRE_FORMATTED
+Host     : $host
+IP       : $ip
+ISP      : $isp
+Pass     : $password
+Expire   : $EXPIRE_FORMATTED
+IP Limit : 1 IP
 EOF
 )
 send_telegram_notification "$message"
@@ -363,6 +367,568 @@ function _auto_fix_port() {
   read -p " Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager
 }
 
+
+# ══════════════════════════════════════════════════════════
+#  IP LIMIT MONITOR — lock 15 menit, banned jika repeat
+# ══════════════════════════════════════════════════════════
+IP_LIMIT_CONF="/etc/zivpn/ip_limit.conf"
+IP_LOCK_DIR="/etc/zivpn/ip_locks"
+IP_WARN_DIR="/etc/zivpn/ip_warns"
+IP_LIMIT_LOG="/var/log/zivpn_ip_limit.log"
+IP_LIMIT_TG_CONF="/etc/zivpn/ip_limit_telegram.conf"
+
+# ── Kirim notifikasi khusus IP Limit (bot & admin tersendiri) ──
+function _send_iplimit_telegram() {
+  local message="$1"
+  local BOT_TOKEN="" ADMIN_ID=""
+  # Baca config IP limit telegram dulu
+  if [ -f "$IP_LIMIT_TG_CONF" ]; then
+    source "$IP_LIMIT_TG_CONF"
+    BOT_TOKEN="${IPLIMIT_BOT_TOKEN:-}"
+    ADMIN_ID="${IPLIMIT_ADMIN_ID:-}"
+  fi
+  # Fallback ke telegram.conf utama jika belum ada config khusus
+  if [ -z "$BOT_TOKEN" ] || [ -z "$ADMIN_ID" ]; then
+    if [ -f "$TELEGRAM_CONF" ]; then
+      source "$TELEGRAM_CONF"
+      BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+      ADMIN_ID="${TELEGRAM_CHAT_ID:-}"
+    fi
+  fi
+  if [ -n "$BOT_TOKEN" ] && [ -n "$ADMIN_ID" ]; then
+    curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+      -d "chat_id=${ADMIN_ID}" \
+      --data-urlencode "text=${message}" \
+      -d "parse_mode=Markdown" > /dev/null 2>&1
+  fi
+}
+
+function _ip_limit_log() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$IP_LIMIT_LOG"
+}
+
+function _ip_limit_get_default() {
+  if [ -f "$IP_LIMIT_CONF" ]; then
+    local val; val=$(grep "^DEFAULT_IP_LIMIT=" "$IP_LIMIT_CONF" | cut -d= -f2 | tr -d ' ')
+    [ -n "$val" ] && echo "$val" || echo "1"
+  else
+    echo "1"
+  fi
+}
+
+function _ip_limit_get_user() {
+  local user="$1"
+  if [ -f "$IP_LIMIT_CONF" ]; then
+    local val
+    val=$(grep "^USER_LIMIT_${user}=" "$IP_LIMIT_CONF" 2>/dev/null | cut -d= -f2 | tr -d ' ')
+    if [ -n "$val" ]; then
+      echo "$val"
+      return
+    fi
+  fi
+  _ip_limit_get_default
+}
+
+function _ip_limit_set_user() {
+  local user="$1"
+  local limit="$2"
+  mkdir -p /etc/zivpn
+  touch "$IP_LIMIT_CONF"
+  if grep -q "^USER_LIMIT_${user}=" "$IP_LIMIT_CONF"; then
+    sed -i "s/^USER_LIMIT_${user}=.*/USER_LIMIT_${user}=${limit}/" "$IP_LIMIT_CONF"
+  else
+    echo "USER_LIMIT_${user}=${limit}" >> "$IP_LIMIT_CONF"
+  fi
+}
+
+function _ip_limit_set_default_limit() {
+  local limit="$1"
+  mkdir -p /etc/zivpn
+  touch "$IP_LIMIT_CONF"
+  if grep -q "^DEFAULT_IP_LIMIT=" "$IP_LIMIT_CONF"; then
+    sed -i "s/^DEFAULT_IP_LIMIT=.*/DEFAULT_IP_LIMIT=${limit}/" "$IP_LIMIT_CONF"
+  else
+    echo "DEFAULT_IP_LIMIT=${limit}" >> "$IP_LIMIT_CONF"
+  fi
+}
+
+function _ip_limit_is_locked() {
+  local user="$1"
+  local lock_file="${IP_LOCK_DIR}/${user}.lock"
+  [ -f "$lock_file" ] && return 0 || return 1
+}
+
+function _ip_limit_lock_user() {
+  local user="$1"
+  local active_ip_list="$2"
+  mkdir -p "$IP_LOCK_DIR"
+  echo "$(date +%s)" > "${IP_LOCK_DIR}/${user}.lock"
+  _ip_limit_log "USER LOCKED: $user — lock 15 menit | IP aktif: $active_ip_list"
+  local server_ip; server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null || echo "N/A")
+  local limit; limit=$(_ip_limit_get_user "$user")
+  local lock_until; lock_until=$(date -d "+15 minutes" '+%H:%M:%S')
+  local msg="🔒 *AKUN DIKUNCI — IP LIMIT*
+
+👤 User    : \`${user}\`
+🚦 Limit   : ${limit} IP
+🌐 IP Login: ${active_ip_list}
+⏱ Kunci   : 15 menit (s/d ${lock_until})
+🖥 Server  : ${server_ip}
+📅 Waktu   : $(date '+%d-%m-%Y %H:%M:%S')
+
+_Akun akan otomatis dibuka setelah 15 menit._
+_Jika melanggar lagi → akun akan DIBANNED permanen._"
+  _send_iplimit_telegram "$msg"
+}
+
+function _ip_limit_notify_multilogin() {
+  local user="$1"
+  local active_ip_list="$2"
+  local count="$3"
+  local limit="$4"
+  local server_ip; server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null || echo "N/A")
+  _ip_limit_log "MULTI LOGIN: $user — ${count} IP aktif (limit: ${limit}) | ${active_ip_list}"
+  local msg="⚠️ *DETEKSI MULTI LOGIN*
+
+👤 User     : \`${user}\`
+🚦 Limit    : ${limit} IP
+📊 IP Aktif : ${count} IP
+🌐 IP List  :
+${active_ip_list}
+🖥 Server   : ${server_ip}
+📅 Waktu    : $(date '+%d-%m-%Y %H:%M:%S')
+
+_Akun sedang diproses untuk dikunci..._"
+  _send_iplimit_telegram "$msg"
+}
+
+function _ip_limit_unlock_check() {
+  mkdir -p "$IP_LOCK_DIR"
+  local now; now=$(date +%s)
+  for lock_file in "${IP_LOCK_DIR}"/*.lock; do
+    [ -f "$lock_file" ] || continue
+    local user; user=$(basename "$lock_file" .lock)
+    local lock_time; lock_time=$(cat "$lock_file")
+    local elapsed=$(( now - lock_time ))
+    if [ "$elapsed" -ge 900 ]; then
+      rm -f "$lock_file"
+      _ip_limit_log "USER UNLOCKED: $user — otomatis setelah 15 menit"
+      local server_ip; server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null || echo "N/A")
+      local unlock_time; unlock_time=$(date '+%d-%m-%Y %H:%M:%S')
+      local msg="✅ *AKUN DIBUKA KEMBALI*
+
+👤 User    : \`${user}\`
+🔓 Status  : Dikunci sudah > 15 menit, otomatis dibuka
+🖥 Server  : ${server_ip}
+📅 Waktu   : ${unlock_time}
+
+_Peringatan: Jika melanggar lagi, akun akan DIBANNED permanen._"
+      _send_iplimit_telegram "$msg"
+    fi
+  done
+}
+
+function _ip_limit_ban_user() {
+  local user="$1"
+  local reason="${2:-Melanggar IP limit ulang setelah dikunci}"
+  _ip_limit_log "USER BANNED: $user — $reason"
+  local server_ip; server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null || echo "N/A")
+  local msg="🚫 *AKUN DIBANNED & DIHAPUS PERMANEN*
+
+👤 User    : \`${user}\`
+❌ Status  : BANNED PERMANEN
+🖥 Server  : ${server_ip}
+📅 Waktu   : $(date '+%d-%m-%Y %H:%M:%S')
+📋 Alasan  : ${reason}
+
+_Akun telah dihapus secara permanen dari sistem._"
+  _send_iplimit_telegram "$msg"
+  # Hapus akun permanen
+  _delete_account_logic "$user" >/dev/null 2>&1
+  # Hapus warn & lock
+  rm -f "${IP_WARN_DIR}/${user}.warn" "${IP_LOCK_DIR}/${user}.lock"
+}
+
+function _ip_limit_check_user() {
+  local user="$1"
+  local limit; limit=$(_ip_limit_get_user "$user")
+  mkdir -p "$IP_LOCK_DIR" "$IP_WARN_DIR"
+
+  # Kumpulkan IP aktif dari log zivpn
+  local ip_list=""
+  local log_paths=("/var/log/zivpn.log" "/etc/zivpn/logs/access.log" "/var/log/zivpn_access.log")
+  for lp in "${log_paths[@]}"; do
+    if [ -f "$lp" ]; then
+      ip_list=$(grep -i "$user" "$lp" 2>/dev/null \
+        | grep -iE "connect|login|auth|session" \
+        | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' \
+        | sort -u)
+      break
+    fi
+  done
+
+  local active_ips=0
+  local ip_display="-"
+  if [ -n "$ip_list" ]; then
+    active_ips=$(echo "$ip_list" | wc -l)
+    ip_display=$(echo "$ip_list" | tr '\n' ',' | sed 's/,$//')
+  fi
+
+  if [ "$active_ips" -gt "$limit" ]; then
+    # Kirim notif multi login dulu
+    _ip_limit_notify_multilogin "$user" "$ip_display" "$active_ips" "$limit"
+    if _ip_limit_is_locked "$user"; then
+      # Sudah pernah dilock, ini pelanggaran ke-2 → BAN
+      _ip_limit_ban_user "$user" "Melanggar IP limit ulang setelah dikunci (${active_ips} IP, limit: ${limit})"
+    else
+      # Pertama kali → lock 15 menit
+      _ip_limit_lock_user "$user" "$ip_display"
+    fi
+  fi
+}
+
+function _ip_limit_check_all() {
+  # Baca semua user dari users.db dan cek tiap user
+  local db_file="/etc/zivpn/users.db"
+  [ -f "$db_file" ] || return
+  while IFS=':' read -r password expiry_date; do
+    [[ -z "$password" ]] && continue
+    _ip_limit_check_user "$password"
+  done < "$db_file"
+  _ip_limit_unlock_check
+}
+
+function _ip_limit_get_active_ips_for_user() {
+  # Coba baca dari log zivpn — sesuaikan path log jika berbeda
+  local user="$1"
+  local log_paths=("/var/log/zivpn.log" "/etc/zivpn/logs/access.log" "/var/log/zivpn_access.log")
+  for lp in "${log_paths[@]}"; do
+    if [ -f "$lp" ]; then
+      grep -i "$user" "$lp" 2>/dev/null \
+        | grep -iE "connect|login|auth|session" \
+        | awk '{print $NF}' \
+        | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' \
+        | sort -u
+      return
+    fi
+  done
+  echo ""
+}
+
+function show_ip_limit_menu() {
+  local W='\033[1;37m'
+  local G='\033[1;32m'
+  local R='\033[0;31m'
+  local C='\033[0;36m'
+  local Y='\033[1;33m'
+  local N='\033[0m'
+
+  while true; do
+    clear
+    local default_limit; default_limit=$(_ip_limit_get_default)
+    # Cek status bot
+    local bot_status="${R}Belum diset${N}"
+    if [ -f "$IP_LIMIT_TG_CONF" ]; then
+      source "$IP_LIMIT_TG_CONF" 2>/dev/null
+      if [ -n "${IPLIMIT_BOT_TOKEN:-}" ] && [ -n "${IPLIMIT_ADMIN_ID:-}" ]; then
+        bot_status="${G}Aktif ✔${N}"
+      fi
+    fi
+    echo -e "${C}┌────────────────────────────────────────────┐"
+    echo -e "${C}│${W}      🛡️  IP Limit Monitor & Control       ${C}│"
+    echo -e "${C}├────────────────────────────────────────────┤"
+    printf  "${C}│${W}  Default IP Limit : ${G}%-24s${C}│\n" "$default_limit IP/user"
+    printf  "${C}│${W}  Bot Notifikasi   : "; echo -ne "$bot_status"; printf "${C}%-s${N}\n" ""
+    echo -e "${C}├────────────────────────────────────────────┤"
+    printf  "${C}│${W}  %2s. %-38s${C}│\n" "1" "Lihat Status Login Semua User"
+    printf  "${C}│${W}  %2s. %-38s${C}│\n" "2" "Set Default IP Limit (semua user)"
+    printf  "${C}│${W}  %2s. %-38s${C}│\n" "3" "Set IP Limit per User"
+    printf  "${C}│${W}  %2s. %-38s${C}│\n" "4" "Lihat User yang Sedang Dilock"
+    printf  "${C}│${W}  %2s. %-38s${C}│\n" "5" "Unlock User Manual"
+    printf  "${C}│${W}  %2s. %-38s${C}│\n" "6" "Ban/Hapus User Manual"
+    printf  "${C}│${W}  %2s. %-38s${C}│\n" "7" "Lihat Log IP Limit"
+    printf  "${C}│${W}  %2s. %-38s${C}│\n" "8" "Pasang/Hapus Cron Monitor"
+    printf  "${C}│${W}  %2s. %-38s${C}│\n" "9" "⚙  Setup Token Bot & Admin ID"
+    printf  "${C}│${W}  %2s. %-38s${C}│\n" "0" "Kembali ke Menu Utama"
+    echo -e "${C}└────────────────────────────────────────────┘${N}"
+    echo ""
+    read -p " Pilih [0-9]: " choice
+
+    case "$choice" in
+    1) _iplimit_show_status ;;
+    2) _iplimit_set_default ;;
+    3) _iplimit_set_per_user ;;
+    4) _iplimit_show_locked ;;
+    5) _iplimit_unlock_manual ;;
+    6) _iplimit_ban_manual ;;
+    7) _iplimit_show_log ;;
+    8) _iplimit_toggle_cron ;;
+    9) _iplimit_setup_telegram ;;
+    0) return ;;
+    *) echo -e "${R}Pilihan tidak valid${N}"; sleep 1 ;;
+    esac
+  done
+}
+
+# ── Setup Token Bot & Admin ID khusus IP Limit ──────────
+function _iplimit_setup_telegram() {
+  local C='\033[0;36m' W='\033[1;37m' G='\033[1;32m' R='\033[0;31m' Y='\033[1;33m' N='\033[0m'
+  clear
+  echo -e "${C}┌────────────────────────────────────────────────┐"
+  echo -e "${C}│${W}   ⚙  Setup Notifikasi Telegram IP Limit      ${C}│"
+  echo -e "${C}└────────────────────────────────────────────────┘${N}"
+  echo ""
+  # Tampilkan nilai saat ini jika ada
+  if [ -f "$IP_LIMIT_TG_CONF" ]; then
+    source "$IP_LIMIT_TG_CONF" 2>/dev/null
+    local cur_token="${IPLIMIT_BOT_TOKEN:-}"
+    local cur_id="${IPLIMIT_ADMIN_ID:-}"
+    if [ -n "$cur_token" ]; then
+      # Sensor token — tampilkan 6 char pertama saja
+      local masked_token="${cur_token:0:6}:***censored***"
+      echo -e "${W}  Token saat ini : ${G}${masked_token}${N}"
+    else
+      echo -e "${W}  Token saat ini : ${R}Belum diset${N}"
+    fi
+    if [ -n "$cur_id" ]; then
+      echo -e "${W}  Admin ID saat ini : ${G}${cur_id}${N}"
+    else
+      echo -e "${W}  Admin ID saat ini : ${R}Belum diset${N}"
+    fi
+  else
+    echo -e "${W}  Status : ${R}Belum ada konfigurasi${N}"
+  fi
+  echo ""
+  echo -e "${Y}  Cara mendapatkan Bot Token: chat @BotFather di Telegram${N}"
+  echo -e "${Y}  Cara mendapatkan Admin ID : chat @userinfobot di Telegram${N}"
+  echo ""
+  echo -e "${C}  Pilihan:${N}"
+  echo -e "${W}  1) Set Token Bot & Admin ID baru${N}"
+  echo -e "${W}  2) Test kirim notifikasi${N}"
+  echo -e "${W}  3) Hapus konfigurasi${N}"
+  echo -e "${W}  0) Kembali${N}"
+  echo ""
+  read -p " Pilih [0-3]: " sub
+  case "$sub" in
+  1)
+    echo ""
+    read -p "  Masukkan Bot Token (dari @BotFather): " new_token
+    if [ -z "$new_token" ]; then echo -e "${R}Token tidak boleh kosong${N}"; read -p "Enter..."; return; fi
+    read -p "  Masukkan Admin ID (dari @userinfobot): " new_id
+    if [ -z "$new_id" ]; then echo -e "${R}Admin ID tidak boleh kosong${N}"; read -p "Enter..."; return; fi
+    mkdir -p /etc/zivpn
+    cat > "$IP_LIMIT_TG_CONF" << EOF
+IPLIMIT_BOT_TOKEN=${new_token}
+IPLIMIT_ADMIN_ID=${new_id}
+EOF
+    chmod 600 "$IP_LIMIT_TG_CONF"
+    echo -e "${G}✔ Konfigurasi tersimpan!${N}"
+    echo ""
+    read -p "  Test kirim notifikasi sekarang? [y/N]: " do_test
+    if [[ "$do_test" == "y" || "$do_test" == "Y" ]]; then
+      local server_ip; server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null || echo "N/A")
+      local test_msg="✅ *Test Notifikasi IP Limit*
+
+Bot berhasil terhubung ke sistem IP Limit Monitor ZiVPN.
+
+🖥 Server : ${server_ip}
+📅 Waktu  : $(date '+%d-%m-%Y %H:%M:%S')
+
+_Notifikasi akan dikirim untuk: Multi Login, Lock, Unlock, & Ban._"
+      _send_iplimit_telegram "$test_msg"
+      echo -e "${G}✔ Pesan test dikirim, cek Telegram Anda!${N}"
+    fi
+    ;;
+  2)
+    if [ ! -f "$IP_LIMIT_TG_CONF" ]; then
+      echo -e "${R}Konfigurasi belum ada, set dulu (pilih 1)${N}"
+      read -p "Enter..."; return
+    fi
+    local server_ip; server_ip=$(cat /etc/zivpn/ip.txt 2>/dev/null || echo "N/A")
+    local test_msg="✅ *Test Notifikasi IP Limit*
+
+Bot berhasil terhubung ke sistem IP Limit Monitor ZiVPN.
+
+🖥 Server : ${server_ip}
+📅 Waktu  : $(date '+%d-%m-%Y %H:%M:%S')
+
+_Notifikasi akan dikirim untuk: Multi Login, Lock, Unlock, & Ban._"
+    _send_iplimit_telegram "$test_msg"
+    echo -e "${G}✔ Pesan test dikirim, cek Telegram Anda!${N}"
+    ;;
+  3)
+    read -p "  Yakin hapus konfigurasi telegram IP Limit? [y/N]: " confirm
+    if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+      rm -f "$IP_LIMIT_TG_CONF"
+      echo -e "${G}✔ Konfigurasi dihapus${N}"
+    fi
+    ;;
+  0) return ;;
+  esac
+  read -p "Tekan Enter untuk kembali..."
+}
+
+function _iplimit_show_status() {
+  clear
+  local C='\033[0;36m' W='\033[1;37m' G='\033[1;32m' R='\033[0;31m' Y='\033[1;33m' N='\033[0m'
+  echo -e "${C}───────── Status Login User ─────────────${N}"
+  local db_file="/etc/zivpn/users.db"
+  if [ ! -f "$db_file" ] || [ ! -s "$db_file" ]; then
+    echo "Tidak ada akun."
+    read -p "Enter untuk kembali..."; return
+  fi
+  printf "${W}%-20s │ %-6s │ %-8s │ %s${N}\n" "User" "Limit" "Status" "Lock Sisa"
+  echo "──────────────────────────────────────────────────"
+  while IFS=':' read -r password expiry_date; do
+    [[ -z "$password" ]] && continue
+    local limit; limit=$(_ip_limit_get_user "$password")
+    local status="${G}OK${N}"
+    local sisa="-"
+    if _ip_limit_is_locked "$password"; then
+      status="${R}LOCKED${N}"
+      local lock_time; lock_time=$(cat "${IP_LOCK_DIR}/${password}.lock")
+      local elapsed=$(( $(date +%s) - lock_time ))
+      local remaining=$(( 900 - elapsed ))
+      [ "$remaining" -lt 0 ] && remaining=0
+      sisa="${remaining}s"
+    fi
+    printf "%-20s │ %-6s │ " "$password" "$limit"
+    echo -ne "$status"
+    printf " │ %s\n" "$sisa"
+  done < "$db_file"
+  echo ""
+  read -p "Tekan Enter untuk kembali..."
+}
+
+function _iplimit_set_default() {
+  clear
+  echo "─── Set Default IP Limit ───"
+  read -p "Masukkan jumlah IP max per user (default: 2): " val
+  if ! [[ "$val" =~ ^[0-9]+$ ]] || [ "$val" -lt 1 ]; then
+    echo "Input tidak valid."; read -p "Enter..."; return
+  fi
+  mkdir -p /etc/zivpn
+  touch "$IP_LIMIT_CONF"
+  if grep -q "^DEFAULT_IP_LIMIT=" "$IP_LIMIT_CONF"; then
+    sed -i "s/^DEFAULT_IP_LIMIT=.*/DEFAULT_IP_LIMIT=${val}/" "$IP_LIMIT_CONF"
+  else
+    echo "DEFAULT_IP_LIMIT=${val}" >> "$IP_LIMIT_CONF"
+  fi
+  echo -e "\033[1;32m✔ Default IP limit diset ke $val\033[0m"
+  read -p "Tekan Enter untuk kembali..."
+}
+
+function _iplimit_set_per_user() {
+  clear
+  echo "─── Set IP Limit per User ───"
+  _display_accounts
+  echo ""
+  read -p "Masukkan password/username user: " user
+  [ -z "$user" ] && return
+  read -p "Masukkan IP limit untuk $user: " val
+  if ! [[ "$val" =~ ^[0-9]+$ ]] || [ "$val" -lt 1 ]; then
+    echo "Input tidak valid."; read -p "Enter..."; return
+  fi
+  _ip_limit_set_user "$user" "$val"
+  echo -e "\033[1;32m✔ IP limit untuk $user diset ke $val\033[0m"
+  read -p "Tekan Enter untuk kembali..."
+}
+
+function _iplimit_show_locked() {
+  clear
+  local C='\033[0;36m' W='\033[1;37m' R='\033[0;31m' N='\033[0m'
+  echo -e "${C}─── User yang Sedang LOCKED ───${N}"
+  mkdir -p "$IP_LOCK_DIR"
+  local found=0
+  local now; now=$(date +%s)
+  for lock_file in "${IP_LOCK_DIR}"/*.lock; do
+    [ -f "$lock_file" ] || continue
+    local user; user=$(basename "$lock_file" .lock)
+    local lock_time; lock_time=$(cat "$lock_file")
+    local elapsed=$(( now - lock_time ))
+    local remaining=$(( 900 - elapsed ))
+    [ "$remaining" -lt 0 ] && remaining=0
+    printf "${R}%-20s${N} locked sejak %s | sisa: %ds\n" \
+      "$user" "$(date -d "@$lock_time" '+%H:%M:%S')" "$remaining"
+    found=1
+  done
+  [ "$found" -eq 0 ] && echo "Tidak ada user yang sedang dilock."
+  echo ""
+  read -p "Tekan Enter untuk kembali..."
+}
+
+function _iplimit_unlock_manual() {
+  clear
+  echo "─── Unlock User Manual ───"
+  _iplimit_show_locked
+  read -p "Masukkan username untuk di-unlock: " user
+  [ -z "$user" ] && return
+  if [ -f "${IP_LOCK_DIR}/${user}.lock" ]; then
+    rm -f "${IP_LOCK_DIR}/${user}.lock"
+    _ip_limit_log "MANUAL UNLOCK: $user oleh admin"
+    echo -e "\033[1;32m✔ User $user berhasil di-unlock\033[0m"
+  else
+    echo "User $user tidak sedang dilock."
+  fi
+  read -p "Tekan Enter untuk kembali..."
+}
+
+function _iplimit_ban_manual() {
+  clear
+  echo "─── Ban/Hapus User Manual ───"
+  _display_accounts
+  echo ""
+  read -p "Masukkan username untuk di-ban & dihapus: " user
+  [ -z "$user" ] && return
+  read -p "Yakin ingin BAN & HAPUS PERMANEN user '$user'? [y/N]: " confirm
+  [[ "$confirm" != "y" && "$confirm" != "Y" ]] && return
+  _ip_limit_log "MANUAL BAN: $user oleh admin"
+  _delete_account_logic "$user"
+  rm -f "${IP_LOCK_DIR}/${user}.lock" "${IP_WARN_DIR}/${user}.warn"
+  echo -e "\033[1;32m✔ User $user telah diban dan dihapus\033[0m"
+  read -p "Tekan Enter untuk kembali..."
+}
+
+function _iplimit_show_log() {
+  clear
+  echo "─── Log IP Limit (50 baris terakhir) ───"
+  if [ -f "$IP_LIMIT_LOG" ]; then
+    tail -50 "$IP_LIMIT_LOG"
+  else
+    echo "Log belum tersedia."
+  fi
+  echo ""
+  read -p "Tekan Enter untuk kembali..."
+}
+
+function _iplimit_toggle_cron() {
+  clear
+  echo "─── Pasang/Hapus Cron Monitor IP Limit ───"
+  local cron_tag="# zivpn-ip-limit-monitor"
+  if crontab -l 2>/dev/null | grep -q "$cron_tag"; then
+    echo "Status: AKTIF"
+    read -p "Hapus cron monitor? [y/N]: " c
+    if [[ "$c" == "y" || "$c" == "Y" ]]; then
+      (crontab -l 2>/dev/null | grep -v "$cron_tag") | crontab -
+      echo -e "\033[1;32m✔ Cron monitor dihapus\033[0m"
+    fi
+  else
+    echo "Status: TIDAK AKTIF"
+    read -p "Pasang cron monitor (jalankan tiap 1 menit)? [y/N]: " c
+    if [[ "$c" == "y" || "$c" == "Y" ]]; then
+      # Buat script monitor standalone
+      cat > /etc/zivpn/ip_limit_cron.sh << 'IPCRONEOF'
+#!/bin/bash
+/usr/local/bin/zivpn-manager ip_limit_check_all 2>/dev/null
+IPCRONEOF
+      chmod +x /etc/zivpn/ip_limit_cron.sh
+      (crontab -l 2>/dev/null; echo "* * * * * /etc/zivpn/ip_limit_cron.sh $cron_tag") | crontab -
+      echo -e "\033[1;32m✔ Cron monitor dipasang (setiap 1 menit)\033[0m"
+    fi
+  fi
+  read -p "Tekan Enter untuk kembali..."
+}
+
 function _generate_api_key() {
 clear
 echo "─── Generate API Authentication Key ───"
@@ -424,6 +990,9 @@ expiry_date=$(date -d "+$minutes minutes" +%s | tr -d "\n\r")
 echo "${password}:${expiry_date}" >> "$db_file"
 jq --arg pass "$password" '.auth.config += [$pass]' /etc/zivpn/config.json > /etc/zivpn/config.json.tmp && mv /etc/zivpn/config.json.tmp /etc/zivpn/config.json
 if [ $? -eq 0 ]; then
+# Auto set IP limit = 1 untuk akun trial
+_ip_limit_set_user "$password" "1"
+mkdir -p "$IP_LOCK_DIR" "$IP_WARN_DIR"
 restart_zivpn
 local EXPIRE_FORMATTED
 EXPIRE_FORMATTED=$(date -d "@$expiry_date" +"%d %B %Y %H:%M")
@@ -444,11 +1013,12 @@ echo "DATA:pass=$password"
 echo "DATA:expire=$EXPIRE_FORMATTED"
 local message=$(cat <<EOF
 TRIAL AKUN ZIVPN
-Host   : $host
-IP     : $ip
-ISP    : $isp
-Pass   : $password
-Expire : $EXPIRE_FORMATTED
+Host     : $host
+IP       : $ip
+ISP      : $isp
+Pass     : $password
+Expire   : $EXPIRE_FORMATTED
+IP Limit : 1 IP
 EOF
 )
 send_telegram_notification "$message"
@@ -998,12 +1568,12 @@ clear
   printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "5"  "Daftar Akun"     "12" "Speedtest"
   printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "6"  "Backup/Restore"  "13" "Perbaiki Error"
   printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "7"  "Buat API Key"    "14" "Auto Reboot"
-  printf  "${C}│${W}  %2s. %-16s${N}\n"              "15" "Auto Fix Port API"
+  printf  "${C}│${W}  %2s. %-16s   %2s. %s${N}\n"   "15" "Auto Fix Port API"  "16" "IP Limit Monitor"
   echo -e "${C}├────────────────────────────────────────────"
   printf  "${C}│${W}  x) Keluar${N}\n"
   echo -e "${C}└────────────────────────────────────────────┘${N}"
   echo ""
-  read -p " Pilih Menu (1-15 atau x): " choice
+  read -p " Pilih Menu (1-16 atau x): " choice
   # remap x -> 0
   [[ "$choice" == "x" || "$choice" == "X" ]] && choice=0
 case $choice in
@@ -1022,6 +1592,7 @@ case $choice in
 13) wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/fix-zivpn.sh -O /usr/local/bin/fix-zivpn.sh && chmod +x /usr/local/bin/fix-zivpn.sh && /usr/local/bin/fix-zivpn.sh && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
 14) set_reboot_menu ;;
 15) _auto_fix_port ;;
+16) show_ip_limit_menu ;;
 0) exit 0 ;;
 *) echo "Invalid option. Please try again." ;;
 esac
@@ -1508,6 +2079,9 @@ _renew_account_logic "$@"
 ;;
 trial_account)
 _create_trial_account_logic "$@"
+;;
+ip_limit_check_all)
+_ip_limit_check_all
 ;;
 *)
 echo "Error: Unknown command '$command'"
