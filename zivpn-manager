@@ -1503,46 +1503,38 @@ show_expired_message_and_exit
 fi
 clear
 
-  local O='\e[38;5;130m'   # orange (border)
-  local G='\e[38;5;82m'    # green
-  local R='\e[38;5;196m'   # red
-  local Y='\e[38;5;226m'   # yellow
-  local B='\e[38;5;39m'    # blue
-  local P='\e[38;5;141m'   # purple
-  local W='\033[1;37m'     # bold white
-  local N='\e[0m'          # reset
-  local BX="${O}│${N}"     # border char
+local orange="\e[38;5;130m"
+local green="\e[38;5;82m"
+local neutral="\e[0m"
+local red="\e[38;5;196m"
+local yellow="\e[38;5;226m"
+local blue="\e[38;5;39m"
+local purple="\e[38;5;141m"
 
-  # ══ HEADER ════════════════════════════════════════
-  echo -e "${O}╔═══════════════════════════════════════════╗${N}"
-  echo -e "${O}║${W}       ✦  Z i V P N  M A N A G E R  ✦     ${O}║${N}"
-
-  # ══ MENU LIST ═════════════════════════════════════
-  echo -e "${O}╠═══════════════════════════════════════════╣${N}"
-  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "1."  "Buat Akun"          "9."   "Restart Service"
-  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "2."  "Perpanjang Akun"    "10."  "Update Script"
-  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "3."  "Hapus Akun"         "11."  "Update Lisensi"
-  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "4."  "Ganti Domain"       "12."  "Speedtest"
-  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "5."  "Daftar Akun"        "13."  "Perbaiki Error"
-  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "6."  "Backup/Restore"     "14."  "Auto Reboot"
-  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "7."  "Buat API Key"       "15."  "Fix Port API"
-  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "8."  "Lihat API Key"      "16."  "IP Limit Monitor"
-  echo -e "${O}╠═══════════════════════════════════════════╣${N}"
-  printf  "${O}│  ${R}%-2s${W}  %-19s  ${B}%-4s${W}  %-14s${O} │${N}\n"  "x."  "Keluar"  "menu"  "→ Main Menu"
-  printf  "${O}│  ${Y}%-4s${W}  %-17s  ${P}%-4s${W}  %-14s${O} │${N}\n"  "↵"  "→ SSH Menu"  "menuzi"  "→ ZiVPN Menu"
-  echo -e "${O}╚═══════════════════════════════════════════╝${N}"
-  echo ""
-  read -p " Pilih Menu [1-16 / x / Enter]: " choice
-
-  # Enter kosong → redirect ke /usr/bin/menussh
-  if [[ -z "$choice" ]]; then
-    exec /usr/bin/menussh
-  fi
-
-  # 'menu' → redirect ke /usr/bin/menu (main menu sistem)
-  if [[ "$choice" == "menu" ]]; then
-    exec /usr/bin/menu
-  fi
+echo -e "${orange}─────────────────────────────────────────${neutral}"
+echo -e "       ${green}.::::. ZiVPN MANAGER .::::.${neutral}"
+echo -e "${orange}─────────────────────────────────────────${neutral}"
+echo -e "    ${green}1.${neutral}  Buat Akun"
+echo -e "    ${green}2.${neutral}  Perpanjang Akun"
+echo -e "    ${green}3.${neutral}  Hapus Akun"
+echo -e "    ${green}4.${neutral}  Ganti Domain"
+echo -e "    ${green}5.${neutral}  Daftar Akun"
+echo -e "    ${green}6.${neutral}  Backup/Restore"
+echo -e "    ${green}7.${neutral}  Buat API Key"
+echo -e "    ${green}8.${neutral}  Lihat API Key"
+echo -e "    ${green}9.${neutral}  Restart Service"
+echo -e "    ${green}10.${neutral} Update Script"
+echo -e "    ${green}11.${neutral} Update Lisensi"
+echo -e "    ${green}12.${neutral} Speedtest"
+echo -e "    ${green}13.${neutral} Perbaiki Error"
+echo -e "    ${green}14.${neutral} Auto Reboot"
+echo -e "    ${green}15.${neutral} Fix Port API"
+echo -e "    ${green}16.${neutral} IP Limit Monitor"
+echo -e "    ${green}x.${neutral}  Keluar"
+echo -e "${orange}─────────────────────────────────────────${neutral}"
+echo -e "           ${orange}───${green}───${yellow}───${blue}───${purple}───${red}───${neutral}"
+echo -e ""
+read -p " Pilih Menu [1-16 / x]: " choice
 
   # remap x/X -> keluar
   [[ "$choice" == "x" || "$choice" == "X" ]] && choice=0
