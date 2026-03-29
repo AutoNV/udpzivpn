@@ -243,7 +243,7 @@ function _auto_fix_port() {
     *)
       _warn "Pilihan tidak valid, kembali ke menu..."
       sleep 1
-      /usr/local/bin/zivpn-manager
+      /usr/bin/zivpn-manager
       return
       ;;
   esac
@@ -885,7 +885,7 @@ function _iplimit_toggle_cron() {
       # Buat script monitor standalone
       cat > /etc/zivpn/ip_limit_cron.sh << 'IPCRONEOF'
 #!/bin/bash
-/usr/local/bin/zivpn-manager ip_limit_check_all 2>/dev/null
+/usr/bin/zivpn-manager ip_limit_check_all 2>/dev/null
 IPCRONEOF
       chmod +x /etc/zivpn/ip_limit_cron.sh
       (crontab -l 2>/dev/null; echo "* * * * * /etc/zivpn/ip_limit_cron.sh $cron_tag") | crontab -
@@ -1720,7 +1720,7 @@ const fs = require('fs');
 const app = express();
 const PORT = 5888;
 const AUTH_KEY_PATH = '/etc/zivpn/api_auth.key';
-const ZIVPN_MANAGER_SCRIPT = '/usr/local/bin/zivpn-manager';
+const ZIVPN_MANAGER_SCRIPT = '/usr/bin/zivpn-manager';
 const authenticate = (req, res, next) => {
 const providedAuthKey = req.query.auth;
 if (!providedAuthKey) return res.status(401).json({ status: 'error', message: 'Authentication key is required.' });
@@ -1830,9 +1830,9 @@ echo "Notifikasi Telegram dapat diatur nanti melalui menu Backup/Restore."
 _ok "Skipped (configure via menu)"
 
 _progress "Installing zivpn-manager"
-cp "$0" /usr/local/bin/zivpn-manager
-chmod +x /usr/local/bin/zivpn-manager
-_ok "zivpn-manager installed"
+cp "$0" /usr/bin/zivpn-manager
+chmod +x /usr/bin/zivpn-manager
+_ok "zivpn-manager installed → /usr/bin/zivpn-manager"
 
 echo ""
 _sep
@@ -1840,26 +1840,6 @@ echo -e "${_G}  ✔  Installation completed successfully!${NC}"
 _sep
 echo ""
 sleep 1
-
-if [ -f "/usr/local/bin/zivpn-manager" ]; then
-rm -rf /root/.profile
-cat <<EOF > /root/.profile
-if [ "$BASH" ]; then
-if [ -f ~/.bashrc ]; then
-. ~/.bashrc
-fi
-fi
-mesg n || true
-ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
-$WEB_SERVER
-/usr/bin/home
-EOF
-PROFILE_FILE="/root/.bashrc"
-[ -f "/root/.bash_profile" ] && PROFILE_FILE="/root/.bash_profile"
-ALIAS_CMD="alias menuzi='/usr/local/bin/zivpn-manager'"
-grep -qF "$ALIAS_CMD" "$PROFILE_FILE" || echo "$ALIAS_CMD" >> "$PROFILE_FILE"
-_ok "Mode: ZIVPN Only aktif"
-fi
 show_menu
 }
 EXPIRY_DATE=$(date -d "+1 day" +%s)
