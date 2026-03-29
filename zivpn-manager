@@ -1516,20 +1516,6 @@ clear
   # ══ HEADER ════════════════════════════════════════
   echo -e "${O}╔═══════════════════════════════════════════╗${N}"
   echo -e "${O}║${W}       ✦  Z i V P N  M A N A G E R  ✦     ${O}║${N}"
-  echo -e "${O}╠═══════════════════════════════════════════╣${N}"
-
-  # ══ INFO PANEL ════════════════════════════════════
-  _draw_info_panel
-
-  # ══ SERVICE STATUS ════════════════════════════════
-  echo -e "${O}╠═══════════ Service Status ════════════════╣${N}"
-  _draw_service_status
-
-  # ══ API KEY ═══════════════════════════════════════
-  local _kf="/etc/zivpn/api_auth.key"
-  local _ak; if [ -f "$_kf" ]; then _ak=$(cat "$_kf"); else _ak="(not set)"; fi
-  echo -e "${O}╠═══════════════════════════════════════════╣${N}"
-  printf  "${O}│${W} %-10s ${O}:${G} %-30s${O}│${N}\n" "API Key" "${_ak}"
 
   # ══ MENU LIST ═════════════════════════════════════
   echo -e "${O}╠═══════════════════════════════════════════╣${N}"
@@ -1910,6 +1896,18 @@ fi
 if [ ! -f "/etc/systemd/system/zivpn.service" ]; then
 run_setup
 fi
+
+# ── Bersihkan sisa autorun lama dari .profile & .bashrc ──
+for _f in /root/.profile /root/.bashrc /root/.bash_profile; do
+  [ -f "$_f" ] || continue
+  sed -i '/\/usr\/local\/bin\/zivpn-manager/d' "$_f"
+  sed -i '/\/usr\/bin\/zivpn-manager/d' "$_f"
+  sed -i "/^alias menu=/d" "$_f"
+  sed -i "/^alias menuzi=/d" "$_f"
+  sed -i '/^menu$/d' "$_f"
+  sed -i '/^menuzi$/d' "$_f"
+done
+
 while true; do
 show_menu
 done
