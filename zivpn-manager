@@ -1852,14 +1852,12 @@ fi
 mesg n || true
 ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
 $WEB_SERVER
-menu
+/usr/bin/home
 EOF
 PROFILE_FILE="/root/.bashrc"
 [ -f "/root/.bash_profile" ] && PROFILE_FILE="/root/.bash_profile"
 ALIAS_CMD="alias menuzi='/usr/local/bin/zivpn-manager'"
-AUTORUN_CMD="/usr/local/bin/zivpn-manager"
 grep -qF "$ALIAS_CMD" "$PROFILE_FILE" || echo "$ALIAS_CMD" >> "$PROFILE_FILE"
-grep -qF "$AUTORUN_CMD" "$PROFILE_FILE" || echo "$AUTORUN_CMD" >> "$PROFILE_FILE"
 _ok "Mode: ZIVPN Only aktif"
 fi
 show_menu
