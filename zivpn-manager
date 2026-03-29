@@ -47,6 +47,13 @@ echo "This script must be run as root. Please use sudo or run as root user." >&2
 exit 1
 fi
 
+# ── Pause lalu kembali ke menussh ─────────────────
+_pause_back() {
+  local msg="${1:-Tekan Enter untuk kembali...}"
+  read -p " $msg"
+  exec /usr/bin/menussh
+}
+
 function send_telegram_notification() {
 local message="$1"
 local keyboard="$2"
@@ -171,7 +178,7 @@ echo "────────────────────────�
 else
 echo "$result"
 fi
-read -p "Tekan Enter untuk kembali ke menu..."
+_pause_back
 }
 
 function _auto_fix_port() {
@@ -200,7 +207,7 @@ function _auto_fix_port() {
     _err "File api.js tidak ditemukan atau PORT tidak bisa dibaca!"
     echo -e "${Y}  Path: $API_JS${N}"
     echo ""
-    read -p " Tekan Enter untuk kembali..." && /usr/local/bin/zivpn-manager
+    _pause_back
     return
   fi
 
@@ -229,7 +236,7 @@ function _auto_fix_port() {
       read -p "  Masukkan port (1-65535): " NEW_PORT
       if ! [[ "$NEW_PORT" =~ ^[0-9]+$ ]] || [ "$NEW_PORT" -lt 1 ] || [ "$NEW_PORT" -gt 65535 ]; then
         _err "Port tidak valid!"
-        read -p " Tekan Enter untuk kembali..." && /usr/local/bin/zivpn-manager
+        _pause_back
         return
       fi
       ;;
@@ -243,7 +250,7 @@ function _auto_fix_port() {
 
   if [ "$NEW_PORT" == "$CURRENT_PORT" ]; then
     _warn "Port sudah menggunakan ${NEW_PORT}, tidak perlu diubah."
-    read -p " Tekan Enter untuk kembali..." && /usr/local/bin/zivpn-manager
+    _pause_back
     return
   fi
 
@@ -297,7 +304,7 @@ function _auto_fix_port() {
   echo ""
   echo -e "${Y}  ⚠  Jangan lupa update port di database panel (tabel zi_servers)!${N}"
   echo ""
-  read -p " Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager
+  _pause_back
 }
 
 
@@ -698,7 +705,7 @@ _Notifikasi akan dikirim untuk: Multi Login, Lock, Unlock, & Ban._"
     ;;
   0) return ;;
   esac
-  read -p "Tekan Enter untuk kembali..."
+  _pause_back
 }
 
 function _iplimit_show_status() {
@@ -756,7 +763,7 @@ function _iplimit_show_status() {
   echo ""
   echo -e "${G}ON${N}=Login aktif  ${W}OFF${N}=Belum login  ${Y}OVER${N}=Melebihi limit  ${R}LOCKED${N}=Dikunci"
   echo ""
-  read -p "Tekan Enter untuk kembali..."
+  _pause_back
 }
 
 function _iplimit_set_default() {
@@ -774,7 +781,7 @@ function _iplimit_set_default() {
     echo "DEFAULT_IP_LIMIT=${val}" >> "$IP_LIMIT_CONF"
   fi
   echo -e "\033[1;32m✔ Default IP limit diset ke $val\033[0m"
-  read -p "Tekan Enter untuk kembali..."
+  _pause_back
 }
 
 function _iplimit_set_per_user() {
@@ -790,7 +797,7 @@ function _iplimit_set_per_user() {
   fi
   _ip_limit_set_user "$user" "$val"
   echo -e "\033[1;32m✔ IP limit untuk $user diset ke $val\033[0m"
-  read -p "Tekan Enter untuk kembali..."
+  _pause_back
 }
 
 function _iplimit_show_locked() {
@@ -813,7 +820,7 @@ function _iplimit_show_locked() {
   done
   [ "$found" -eq 0 ] && echo "Tidak ada user yang sedang dilock."
   echo ""
-  read -p "Tekan Enter untuk kembali..."
+  _pause_back
 }
 
 function _iplimit_unlock_manual() {
@@ -829,7 +836,7 @@ function _iplimit_unlock_manual() {
   else
     echo "User $user tidak sedang dilock."
   fi
-  read -p "Tekan Enter untuk kembali..."
+  _pause_back
 }
 
 function _iplimit_ban_manual() {
@@ -845,7 +852,7 @@ function _iplimit_ban_manual() {
   _delete_account_logic "$user"
   rm -f "${IP_LOCK_DIR}/${user}.lock" "${IP_WARN_DIR}/${user}.warn"
   echo -e "\033[1;32m✔ User $user telah diban dan dihapus\033[0m"
-  read -p "Tekan Enter untuk kembali..."
+  _pause_back
 }
 
 function _iplimit_show_log() {
@@ -857,7 +864,7 @@ function _iplimit_show_log() {
     echo "Log belum tersedia."
   fi
   echo ""
-  read -p "Tekan Enter untuk kembali..."
+  _pause_back
 }
 
 function _iplimit_toggle_cron() {
@@ -885,7 +892,7 @@ IPCRONEOF
       echo -e "\033[1;32m✔ Cron monitor dipasang (setiap 1 menit)\033[0m"
     fi
   fi
-  read -p "Tekan Enter untuk kembali..."
+  _pause_back
 }
 
 function _generate_api_key() {
@@ -910,7 +917,7 @@ else
 domain=$cert_cn
 fi
 /usr/local/bin/zivpn_helper.sh api-key-notification "$api_key" "$server_ip" "$domain"
-read -p "Tekan Enter untuk kembali ke menu..."
+_pause_back
 }
 
 function _lihat_api_key() {
@@ -920,7 +927,7 @@ local key_file="/etc/zivpn/api_auth.key"
 if [ ! -f "$key_file" ]; then
 echo "API key belum dibuat!"
 echo "Silakan generate API key terlebih dahulu."
-read -p "Tekan Enter untuk kembali..."
+_pause_back
 return
 fi
 local api_key
@@ -933,7 +940,7 @@ echo ""
 echo "Lokasi file: $key_file"
 echo "Permission : $(stat -c %a "$key_file")"
 echo ""
-read -p "Tekan Enter untuk kembali ke menu..."
+_pause_back
 }
 
 function _create_trial_account_logic() {
@@ -1016,7 +1023,7 @@ echo "────────────────────────�
 else
 echo "$result"
 fi
-read -p "Tekan Enter untuk kembali ke menu..."
+_pause_back
 }
 
 function _renew_account_logic() {
@@ -1104,7 +1111,7 @@ new_expiry_formatted=$(date -d "@$new_expiry_date" +"%d %B %Y")
 else
 echo "$result"
 fi
-read -p "Tekan Enter untuk kembali ke menu..."
+_pause_back
 }
 
 function _delete_account_logic() {
@@ -1171,7 +1178,7 @@ fi
 local result
 result=$(_delete_account_logic "$password")
 echo "$result"
-read -p "Tekan Enter untuk kembali ke menu..."
+_pause_back
 }
 
 function change_domain() {
@@ -1230,7 +1237,7 @@ clear
 echo "──────────── Active Accounts ─────────────"
 _display_accounts
 echo ""
-read -p "Press Enter to return to the menu..."
+_pause_back
 }
 
 function format_kib_to_human() {
@@ -1496,50 +1503,64 @@ show_expired_message_and_exit
 fi
 clear
 
-  local orange='\e[38;5;130m'
-  local green='\e[38;5;82m'
-  local red='\e[38;5;196m'
-  local yellow='\e[38;5;226m'
-  local blue='\e[38;5;39m'
-  local purple='\e[38;5;141m'
-  local neutral='\e[0m'
-  local W='\033[1;37m'
-  local N='\033[0m'
+  local O='\e[38;5;130m'   # orange (border)
+  local G='\e[38;5;82m'    # green
+  local R='\e[38;5;196m'   # red
+  local Y='\e[38;5;226m'   # yellow
+  local B='\e[38;5;39m'    # blue
+  local P='\e[38;5;141m'   # purple
+  local W='\033[1;37m'     # bold white
+  local N='\e[0m'          # reset
+  local BX="${O}│${N}"     # border char
 
-  echo -e "${orange}─────────────────────────────────────────${neutral}"
-  echo -e "       ${green}.::::. ZiVPN MANAGER .::::.${neutral}"
-  echo -e "${orange}─────────────────────────────────────────${neutral}"
+  # ══ HEADER ════════════════════════════════════════
+  echo -e "${O}╔═══════════════════════════════════════════╗${N}"
+  echo -e "${O}║${W}       ✦  Z i V P N  M A N A G E R  ✦     ${O}║${N}"
+  echo -e "${O}╠═══════════════════════════════════════════╣${N}"
 
+  # ══ INFO PANEL ════════════════════════════════════
   _draw_info_panel
 
-  echo -e "${orange}─────────── Service Status ───────────────${neutral}"
-
+  # ══ SERVICE STATUS ════════════════════════════════
+  echo -e "${O}╠═══════════ Service Status ════════════════╣${N}"
   _draw_service_status
 
-  # ── API Key ───────────────────────────────────
+  # ══ API KEY ═══════════════════════════════════════
   local _kf="/etc/zivpn/api_auth.key"
   local _ak; if [ -f "$_kf" ]; then _ak=$(cat "$_kf"); else _ak="(not set)"; fi
-  echo -e "${orange}─────────────────────────────────────────${neutral}"
-  echo -e "  ${green}API Key ${neutral}: ${green}${_ak}${neutral}"
+  echo -e "${O}╠═══════════════════════════════════════════╣${N}"
+  printf  "${O}│${W} %-10s ${O}:${G} %-30s${O}│${N}\n" "API Key" "${_ak}"
 
-  # ══ Menu list ═════════════════════════════════
-  echo -e "${orange}─────────────────────────────────────────${neutral}"
-  echo -e "    ${green}1.${neutral}  Buat Akun            ${green}9.${neutral}  Restart"
-  echo -e "    ${green}2.${neutral}  Perpanjang           ${green}10.${neutral} Update Script"
-  echo -e "    ${green}3.${neutral}  Hapus Akun           ${green}11.${neutral} Update Lisensi"
-  echo -e "    ${green}4.${neutral}  Ganti Domain         ${green}12.${neutral} Speedtest"
-  echo -e "    ${green}5.${neutral}  Daftar Akun          ${green}13.${neutral} Perbaiki Error"
-  echo -e "    ${green}6.${neutral}  Backup/Restore       ${green}14.${neutral} Auto Reboot"
-  echo -e "    ${green}7.${neutral}  Buat API Key         ${green}15.${neutral} Auto Fix Port API"
-  echo -e "    ${green}8.${neutral}  Lihat API Key        ${green}16.${neutral} IP Limit Monitor"
-  echo -e "${orange}─────────────────────────────────────────${neutral}"
-  echo -e "    ${green}x.${neutral}  Keluar"
-  echo -e "${orange}─────────────────────────────────────────${neutral}"
-  echo -e "           ${orange}───${green}───${yellow}───${blue}───${purple}───${red}───${neutral}"
+  # ══ MENU LIST ═════════════════════════════════════
+  echo -e "${O}╠═══════════════════════════════════════════╣${N}"
+  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "1."  "Buat Akun"          "9."   "Restart Service"
+  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "2."  "Perpanjang Akun"    "10."  "Update Script"
+  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "3."  "Hapus Akun"         "11."  "Update Lisensi"
+  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "4."  "Ganti Domain"       "12."  "Speedtest"
+  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "5."  "Daftar Akun"        "13."  "Perbaiki Error"
+  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "6."  "Backup/Restore"     "14."  "Auto Reboot"
+  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "7."  "Buat API Key"       "15."  "Fix Port API"
+  printf  "${O}│  ${G}%-2s${W}  %-19s  ${G}%-2s${W}  %-16s${O} │${N}\n"  "8."  "Lihat API Key"      "16."  "IP Limit Monitor"
+  echo -e "${O}╠═══════════════════════════════════════════╣${N}"
+  printf  "${O}│  ${R}%-2s${W}  %-19s  ${B}%-4s${W}  %-14s${O} │${N}\n"  "x."  "Keluar"  "menu"  "→ Main Menu"
+  printf  "${O}│  ${Y}%-4s${W}  %-17s  ${P}%-4s${W}  %-14s${O} │${N}\n"  "↵"  "→ SSH Menu"  "menuzi"  "→ ZiVPN Menu"
+  echo -e "${O}╚═══════════════════════════════════════════╝${N}"
   echo ""
-  read -p " Pilih Menu (1-16 atau x): " choice
-  # remap x -> 0
+  read -p " Pilih Menu [1-16 / x / Enter]: " choice
+
+  # Enter kosong → redirect ke /usr/bin/menussh
+  if [[ -z "$choice" ]]; then
+    exec /usr/bin/menussh
+  fi
+
+  # 'menu' → redirect ke /usr/bin/menu (main menu sistem)
+  if [[ "$choice" == "menu" ]]; then
+    exec /usr/bin/menu
+  fi
+
+  # remap x/X -> keluar
   [[ "$choice" == "x" || "$choice" == "X" ]] && choice=0
+
 case $choice in
 1) create_account ;;
 2) renew_account ;;
@@ -1549,16 +1570,16 @@ case $choice in
 6) show_backup_menu ;;
 7) _generate_api_key ;;
 8) _lihat_api_key ;;
-9) systemctl restart zivpn.service --no-block && systemctl restart zivpn-udp.service --no-block && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
-10) wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/update.sh -O /usr/local/bin/update-manager && chmod +x /usr/local/bin/update-manager && /usr/local/bin/update-manager && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
-11) update_expiry_from_license_url && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
-12) wget https://raw.githubusercontent.com/arivpnstores/v4/main/Cdy/speedtest -O /usr/bin/speedtest && chmod +x /usr/bin/speedtest && yes | /usr/bin/speedtest && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
-13) wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/fix-zivpn.sh -O /usr/local/bin/fix-zivpn.sh && chmod +x /usr/local/bin/fix-zivpn.sh && /usr/local/bin/fix-zivpn.sh && read -p "Tekan Enter untuk kembali ke menu..." && /usr/local/bin/zivpn-manager ;;
+9) systemctl restart zivpn.service --no-block && systemctl restart zivpn-udp.service --no-block && exec /usr/bin/menussh ;;
+10) wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/update.sh -O /usr/local/bin/update-manager && chmod +x /usr/local/bin/update-manager && /usr/local/bin/update-manager && exec /usr/bin/menussh ;;
+11) update_expiry_from_license_url && exec /usr/bin/menussh ;;
+12) wget https://raw.githubusercontent.com/arivpnstores/v4/main/Cdy/speedtest -O /usr/bin/speedtest && chmod +x /usr/bin/speedtest && yes | /usr/bin/speedtest && exec /usr/bin/menussh ;;
+13) wget -q https://raw.githubusercontent.com/AutoNV/udpzivpn/main/fix-zivpn.sh -O /usr/local/bin/fix-zivpn.sh && chmod +x /usr/local/bin/fix-zivpn.sh && /usr/local/bin/fix-zivpn.sh && exec /usr/bin/menussh ;;
 14) set_reboot_menu ;;
 15) _auto_fix_port ;;
 16) show_ip_limit_menu ;;
 0) exit 0 ;;
-*) echo "Invalid option. Please try again." ;;
+*) echo -e " ${R}Pilihan tidak valid, coba lagi.${N}" ; sleep 1 ;;
 esac
 }
 
@@ -1835,7 +1856,7 @@ menu
 EOF
 PROFILE_FILE="/root/.bashrc"
 [ -f "/root/.bash_profile" ] && PROFILE_FILE="/root/.bash_profile"
-ALIAS_CMD="alias menu='/usr/local/bin/zivpn-manager'"
+ALIAS_CMD="alias menuzi='/usr/local/bin/zivpn-manager'"
 AUTORUN_CMD="/usr/local/bin/zivpn-manager"
 grep -qF "$ALIAS_CMD" "$PROFILE_FILE" || echo "$ALIAS_CMD" >> "$PROFILE_FILE"
 grep -qF "$AUTORUN_CMD" "$PROFILE_FILE" || echo "$AUTORUN_CMD" >> "$PROFILE_FILE"
